@@ -1,0 +1,23 @@
+# Task: Frontend Implementation (React SPA)
+
+- [ ] **Phase 1: Foundation & Design** <!-- id: 0 -->
+    - [x] Create `docs/DESIGN-frontend.md` (UI/UX System) <!-- id: 1 -->
+    - [ ] Initialize React + Vite project in `resources/js` <!-- id: 2 -->
+    - [ ] Setup Tailwind CSS v4 + Shadcn/UI <!-- id: 3 -->
+    - [ ] Implement Routing (React Router v7) <!-- id: 4 -->
+- [ ] **Phase 2: Core Components** <!-- id: 5 -->
+    - [ ] Build Layouts (Auth, Dashboard, Public) <!-- id: 6 -->
+    - [ ] Implement Theme Toggle (Context + LocalStorage) <!-- id: 20 -->
+    - [ ] Implement Auth Screens (Login, Register, OAuth) <!-- id: 7 -->
+    - [ ] Create Dashboard Widgets (Workspaces, Stats) <!-- id: 8 -->
+- [ ] **Phase 3: Form Builder (The Core)** <!-- id: 9 -->
+    - [ ] Implement Drag-and-Drop Interface (`dnd-kit`) <!-- id: 10 -->
+    - [ ] Build Question Type Components <!-- id: 11 -->
+    - [ ] Implement Settings Panel <!-- id: 12 -->
+- [ ] **Phase 4: Public View & Submission** <!-- id: 13 -->
+    - [ ] Build Public Form Renderer <!-- id: 14 -->
+    - [ ] Implement Anti-Cheat UI (Fullscreen, Warnings) <!-- id: 15 -->
+- [ ] **Phase 5: Verification** <!-- id: 16 -->
+    - [ ] Test Mobile Responsiveness <!-- id: 17 -->
+    - [ ] Verify Accessibility (WCAG) <!-- id: 18 -->
+    - [/] Create `walkthrough.md` <!-- id: 19 -->
