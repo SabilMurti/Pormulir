@@ -9,7 +9,7 @@ use Illuminate\Support\Collection;
 
 class GeminiService
 {
-    private const MODEL = 'gemini-2.0-flash';
+    private const MODEL = 'gemini-2.5-flash';
 
     public function generateQuestions(
         User $user,
@@ -102,7 +102,14 @@ PROMPT;
         string $language
     ): string {
         $lang = $language === 'id' ? 'Bahasa Indonesia' : 'English';
-        $typeDesc = $this->getTypeDescription($type);
+        
+        $typeDesc = $type === 'mixed' 
+            ? 'berbagai tipe (Pilihan Ganda, Essay, Checkbox)' 
+            : $this->getTypeDescription($type);
+
+        $jsonTypeField = $type === 'mixed' 
+            ? "tipe soal (pilih: multiple_choice, checkboxes, short_text, long_text)"
+            : $type;
         
         return <<<PROMPT
 Kamu adalah asisten pembuat soal profesional. Buatlah {$count} soal {$typeDesc} tentang topik: "{$topic}"
@@ -110,6 +117,7 @@ Kamu adalah asisten pembuat soal profesional. Buatlah {$count} soal {$typeDesc} 
 Persyaratan:
 - Tingkat kesulitan: {$difficulty}
 - Bahasa: {$lang}
+- Jika Mixed: Variasikan tipe soal secara acak.
 - Untuk pilihan ganda: 4 opsi (A, B, C, D), tandai yang benar
 - Untuk checkbox: bisa lebih dari 1 jawaban benar
 - Untuk short_text/long_text: berikan contoh jawaban benar
@@ -117,22 +125,23 @@ Persyaratan:
 Format output JSON array:
 [
   {
-    "type": "{$type}",
+    "type": "{$jsonTypeField}",
     "content": "pertanyaan",
     "description": "penjelasan tambahan (opsional)",
     "points": 10,
     "correct_answer": "jawaban benar atau array ID opsi",
     "explanation": "penjelasan mengapa jawaban ini benar",
     "options": [
-      {"content": "opsi A", "is_correct": false},
-      {"content": "opsi B", "is_correct": true},
-      {"content": "opsi C", "is_correct": false},
-      {"content": "opsi D", "is_correct": false}
+      {"content": "a. opsi A", "is_correct": false},
+      {"content": "b. opsi B", "is_correct": true},
+      {"content": "c. opsi C", "is_correct": false},
+      {"content": "d. opsi D", "is_correct": false}
     ]
   }
 ]
 
 Hanya kembalikan JSON array, tanpa penjelasan tambahan.
+PENTING: Untuk soal multiple_choice, konten opsi HARUS diawali dengan huruf label (a., b., c., d.).
 PROMPT;
     }
 
@@ -143,7 +152,14 @@ PROMPT;
         string $language
     ): string {
         $lang = $language === 'id' ? 'Bahasa Indonesia' : 'English';
-        $typeDesc = $this->getTypeDescription($type);
+        
+        $typeDesc = $type === 'mixed' 
+            ? 'berbagai tipe (Pilihan Ganda, Essay, Checkbox)' 
+            : $this->getTypeDescription($type);
+
+        $jsonTypeField = $type === 'mixed' 
+            ? "tipe soal (pilih: multiple_choice, checkboxes, short_text, long_text)"
+            : $type;
 
         // Truncate content if too long
         $maxLength = 10000;
@@ -162,25 +178,27 @@ Berdasarkan materi berikut, buatlah {$count} soal {$typeDesc}.
 Persyaratan:
 - Bahasa: {$lang}
 - Soal harus berdasarkan materi yang diberikan
+- Jika Mixed: Variasikan tipe soal.
 - Untuk pilihan ganda: 4 opsi, tandai yang benar
 - Beri penjelasan untuk setiap jawaban
 
 Format output JSON array:
 [
   {
-    "type": "{$type}",
+    "type": "{$jsonTypeField}",
     "content": "pertanyaan",
     "description": null,
     "points": 10,
     "correct_answer": "jawaban benar",
     "explanation": "penjelasan",
     "options": [
-      {"content": "opsi", "is_correct": true/false}
+      {"content": "a. opsi", "is_correct": true/false}
     ]
   }
 ]
 
 Hanya kembalikan JSON array, tanpa penjelasan tambahan.
+PENTING: Untuk soal multiple_choice, konten opsi HARUS diawali dengan huruf label (a., b., c., d.).
 PROMPT;
     }
 
@@ -210,12 +228,36 @@ PROMPT;
 
         // Validate and clean each question
         return array_map(function ($q) use ($type) {
+            $questionType = $q['type'] ?? ($type === 'mixed' ? 'short_text' : $type);
+            
+            // Normalize type - map AI returned types to valid backend types
+            $typeMapping = [
+                'mixed' => 'multiple_choice',
+                'checkbox' => 'checkboxes',
+                'essay' => 'long_text',
+                'text' => 'short_text',
+                'pilihan_ganda' => 'multiple_choice',
+                'isian' => 'short_text',
+                'uraian' => 'long_text',
+                'scale' => 'linear_scale',
+            ];
+            
+            $questionType = strtolower(trim($questionType));
+            if (isset($typeMapping[$questionType])) {
+                $questionType = $typeMapping[$questionType];
+            }
+            // Normalize correct_answer to array if it's a string
+            $correctAnswer = $q['correct_answer'] ?? null;
+            if (is_string($correctAnswer) && !empty($correctAnswer)) {
+                $correctAnswer = [$correctAnswer];
+            }
+
             return [
-                'type' => $q['type'] ?? $type,
+                'type' => $questionType,
                 'content' => $q['content'] ?? '',
                 'description' => $q['description'] ?? null,
                 'points' => $q['points'] ?? 10,
-                'correct_answer' => $q['correct_answer'] ?? null,
+                'correct_answer' => $correctAnswer,
                 'explanation' => $q['explanation'] ?? null,
                 'options' => $q['options'] ?? [],
             ];

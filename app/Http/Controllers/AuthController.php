@@ -62,6 +62,7 @@ class AuthController extends Controller
     private function postMessageResponse(array $data)
     {
         $json = json_encode($data);
+        $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
         
         $html = <<<HTML
 <!DOCTYPE html>
@@ -86,7 +87,7 @@ class AuthController extends Controller
             width: 40px;
             height: 40px;
             border: 3px solid #e2e8f0;
-            border-top-color: #0d9488;
+            border-top-color: #4f46e5;
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin: 0 auto 16px;
@@ -104,6 +105,7 @@ class AuthController extends Controller
     <script>
         (function() {
             const data = {$json};
+            const frontendUrl = '{$frontendUrl}';
             
             // Send to opener window (popup mode)
             if (window.opener) {
@@ -114,12 +116,12 @@ class AuthController extends Controller
             else if (window.parent !== window) {
                 window.parent.postMessage(data, '*');
             }
-            // No opener - redirect to root with token in hash
+            // No opener - redirect to frontend with token in hash
             else {
                 if (data.type === 'oauth-success') {
-                    window.location.href = '/#token=' + data.token;
+                    window.location.href = frontendUrl + '/login/callback#token=' + data.token;
                 } else {
-                    window.location.href = '/#error=' + encodeURIComponent(data.error);
+                    window.location.href = frontendUrl + '/login#error=' + encodeURIComponent(data.error);
                 }
             }
         })();

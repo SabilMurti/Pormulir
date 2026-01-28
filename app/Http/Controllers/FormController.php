@@ -26,6 +26,41 @@ class FormController extends Controller
         return FormResource::collection($forms);
     }
 
+    public function listAll(Request $request): AnonymousResourceCollection
+    {
+        $user = $request->user();
+        
+        // Get all forms from workspaces where user is a member
+        $forms = Form::whereHas('workspace', function ($query) use ($user) {
+            $query->whereHas('members', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            });
+        })
+        ->withCount(['questions', 'sessions'])
+        ->orderBy('updated_at', 'desc')
+        ->get();
+
+        return FormResource::collection($forms);
+    }
+
+    public function storeStandalone(StoreFormRequest $request): FormResource
+    {
+        // Require workspace_id in body
+        $request->validate(['workspace_id' => 'required|exists:workspaces,id']);
+        
+        $workspace = Workspace::findOrFail($request->workspace_id);
+        $this->authorize('update', $workspace);
+
+        $form = new Form($request->validated());
+        $form->workspace_id = $workspace->id;
+        $form->created_by = $request->user()->id;
+        $form->slug = Str::slug($form->title) . '-' . Str::random(8);
+        $form->settings = $form->getDefaultSettings();
+        $form->save();
+
+        return new FormResource($form->load('creator'));
+    }
+
     public function store(StoreFormRequest $request, Workspace $workspace): FormResource
     {
         $this->authorize('update', $workspace);

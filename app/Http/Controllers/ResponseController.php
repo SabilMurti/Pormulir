@@ -18,7 +18,10 @@ class ResponseController extends Controller
 {
     public function index(Request $request, Form $form): AnonymousResourceCollection
     {
-        $this->authorize('view', $form->workspace);
+        // Handle forms with or without workspace
+        if ($form->workspace_id) {
+            $this->authorize('view', $form->workspace);
+        }
 
         $sessions = $form->sessions()
             ->where('status', 'submitted')
@@ -29,17 +32,60 @@ class ResponseController extends Controller
         return FormSessionResource::collection($sessions);
     }
 
-    public function show(Form $form, FormSession $session): FormSessionResource
+    public function show(Form $form, FormSession $session): JsonResponse
     {
-        $this->authorize('view', $form->workspace);
+        // Handle forms with or without workspace
+        if ($form->workspace_id) {
+            $this->authorize('view', $form->workspace);
+        }
 
         if ($session->form_id !== $form->id) {
             abort(404);
         }
 
-        return new FormSessionResource(
-            $session->load(['user', 'responses.question', 'violations'])
-        );
+        $session->load(['user', 'responses.question.options', 'violations']);
+        
+        // Get form questions with correct answers for grading view
+        $form->load('questions.options');
+
+        return response()->json([
+            'session' => [
+                'id' => $session->id,
+                'respondent_name' => $session->respondent_name,
+                'respondent_email' => $session->respondent_email,
+                'status' => $session->status,
+                'started_at' => $session->started_at,
+                'submitted_at' => $session->submitted_at,
+                'time_spent_seconds' => $session->time_spent_seconds,
+                'score' => $session->score,
+                'ip_address' => $session->ip_address,
+                'responses' => $session->responses->map(fn($r) => [
+                    'id' => $r->id,
+                    'question_id' => $r->question_id,
+                    'answer' => $r->answer,
+                    'is_correct' => $r->is_correct,
+                    'points_earned' => $r->points_earned,
+                ]),
+                'violations_count' => $session->violations->count(),
+            ],
+            'form' => [
+                'id' => $form->id,
+                'title' => $form->title,
+                'questions' => $form->questions->map(fn($q) => [
+                    'id' => $q->id,
+                    'type' => $q->type,
+                    'content' => $q->content,
+                    'description' => $q->description,
+                    'points' => $q->points,
+                    'correct_answer' => $q->correct_answer,
+                    'options' => $q->options->map(fn($o) => [
+                        'id' => $o->id,
+                        'content' => $o->content,
+                        'is_correct' => $o->is_correct,
+                    ]),
+                ]),
+            ],
+        ]);
     }
 
     public function destroy(Form $form, FormSession $session): JsonResponse
@@ -53,6 +99,15 @@ class ResponseController extends Controller
         $session->delete();
 
         return response()->json(['message' => 'Response deleted successfully']);
+    }
+
+    public function destroyAll(Form $form): JsonResponse
+    {
+        $this->authorize('update', $form->workspace);
+
+        $form->sessions()->delete();
+
+        return response()->json(['message' => 'All responses deleted successfully']);
     }
 
     public function export(Request $request, Form $form): BinaryFileResponse|StreamedResponse
@@ -71,7 +126,10 @@ class ResponseController extends Controller
 
     public function summary(Form $form): JsonResponse
     {
-        $this->authorize('view', $form->workspace);
+        // Handle forms with or without workspace
+        if ($form->workspace_id) {
+            $this->authorize('view', $form->workspace);
+        }
 
         $form->load('questions.options');
 

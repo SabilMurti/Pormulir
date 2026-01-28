@@ -54,9 +54,15 @@ class Form extends Model
         return [
             'general' => [
                 'collect_email' => false,
+                'require_login' => false, // New Setting
                 'limit_one_response' => false,
-                'show_progress_bar' => true,
+                'show_progress' => true,
                 'shuffle_questions' => false,
+                'shuffle_options' => false,
+                'allow_resubmit' => false,
+                'show_score_after' => false,
+                'show_correct_answers' => false,
+                'passing_score' => null,
                 'confirmation_message' => 'Terima kasih!',
             ],
             'access' => [
@@ -68,15 +74,16 @@ class Form extends Model
             'exam_mode' => [
                 'enabled' => false,
                 'time_limit_minutes' => null,
-                'shuffle_options' => false,
-                'show_score_after' => true,
-                'passing_score' => null,
                 'anti_cheat' => [
                     'fullscreen_required' => false,
                     'block_copy_paste' => false,
                     'detect_tab_switch' => false,
                     'max_violations' => 3,
                 ],
+            ],
+            'notifications' => [
+                'notify_on_submission' => true,
+                'send_confirmation' => false,
             ],
         ];
     }

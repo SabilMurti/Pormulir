@@ -29,6 +29,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Forms (nested under workspaces for creation, standalone for other operations)
     Route::get('workspaces/{workspace}/forms', [FormController::class, 'index']);
     Route::post('workspaces/{workspace}/forms', [FormController::class, 'store']);
+    
+    // Standalone Forms Routes (NEW)
+    Route::get('forms', [FormController::class, 'listAll']);
+    Route::post('forms', [FormController::class, 'storeStandalone']);
 
     Route::apiResource('forms', FormController::class)->except(['index', 'store']);
     Route::post('forms/{form}/duplicate', [FormController::class, 'duplicate']);
@@ -43,9 +47,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Responses
     Route::get('forms/{form}/responses', [ResponseController::class, 'index']);
+    Route::delete('forms/{form}/responses', [ResponseController::class, 'destroyAll']);
+    Route::get('forms/{form}/responses/export', [ResponseController::class, 'export']);
     Route::get('forms/{form}/responses/{session}', [ResponseController::class, 'show']);
     Route::delete('forms/{form}/responses/{session}', [ResponseController::class, 'destroy']);
-    Route::get('forms/{form}/responses/export', [ResponseController::class, 'export']);
     Route::get('forms/{form}/summary', [ResponseController::class, 'summary']);
 
     // AI Generation
@@ -63,6 +68,7 @@ Route::prefix('f')->group(function () {
     Route::get('{slug}', [PublicFormController::class, 'show']);
     Route::post('{slug}/start', [PublicFormController::class, 'start']);
     Route::post('{slug}/submit', [PublicFormController::class, 'submit']);
+    Route::post('{slug}/submit-direct', [PublicFormController::class, 'submitDirect']);
     Route::post('{slug}/violation', [PublicFormController::class, 'violation']);
     Route::get('{slug}/results', [PublicFormController::class, 'results']);
 });

@@ -46,7 +46,7 @@ class AIController extends Controller
         $request->validate([
             'file' => 'required|file|mimes:txt,pdf,doc,docx|max:10240',
             'count' => 'nullable|integer|min:1|max:20',
-            'type' => 'nullable|string|in:multiple_choice,checkboxes,short_text,long_text',
+            'type' => 'nullable|string|in:multiple_choice,checkboxes,short_text,long_text,mixed',
             'language' => 'nullable|string|in:id,en',
         ]);
 
