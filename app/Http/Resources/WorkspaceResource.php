@@ -12,9 +12,11 @@ class WorkspaceResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'description' => $this->description,
             'slug' => $this->slug,
             'settings' => $this->settings,
             'forms_count' => $this->whenCounted('forms'),
+            'members_count' => $this->whenCounted('members'),
             'owner' => new UserResource($this->whenLoaded('owner')),
             'members' => UserResource::collection($this->whenLoaded('members')),
             'role' => $this->whenPivotLoaded('workspace_members', fn() => $this->pivot->role),

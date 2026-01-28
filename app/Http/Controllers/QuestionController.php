@@ -14,7 +14,15 @@ class QuestionController extends Controller
 {
     public function store(StoreQuestionRequest $request, Form $form): QuestionResource
     {
-        $this->authorize('update', $form->workspace);
+        // Handle forms with or without workspace
+        if ($form->workspace_id) {
+            $this->authorize('update', $form->workspace);
+        } else {
+            // For standalone forms, check if user owns the form
+            if ($form->created_by !== $request->user()->id) {
+                abort(403, 'Unauthorized');
+            }
+        }
 
         $maxOrder = $form->questions()->max('sort_order') ?? 0;
 
@@ -39,7 +47,14 @@ class QuestionController extends Controller
 
     public function update(UpdateQuestionRequest $request, Question $question): QuestionResource
     {
-        $this->authorize('update', $question->form->workspace);
+        // Handle forms with or without workspace
+        if ($question->form->workspace_id) {
+            $this->authorize('update', $question->form->workspace);
+        } else {
+            if ($question->form->created_by !== $request->user()->id) {
+                abort(403, 'Unauthorized');
+            }
+        }
 
         $question->update($request->validated());
 
@@ -59,9 +74,16 @@ class QuestionController extends Controller
         return new QuestionResource($question->load('options'));
     }
 
-    public function destroy(Question $question): JsonResponse
+    public function destroy(Request $request, Question $question): JsonResponse
     {
-        $this->authorize('update', $question->form->workspace);
+        // Handle forms with or without workspace
+        if ($question->form->workspace_id) {
+            $this->authorize('update', $question->form->workspace);
+        } else {
+            if ($question->form->created_by !== $request->user()->id) {
+                abort(403, 'Unauthorized');
+            }
+        }
 
         $question->delete();
 
@@ -70,18 +92,24 @@ class QuestionController extends Controller
 
     public function reorder(Request $request, Form $form): JsonResponse
     {
-        $this->authorize('update', $form->workspace);
+        // Handle forms with or without workspace
+        if ($form->workspace_id) {
+            $this->authorize('update', $form->workspace);
+        } else {
+            if ($form->created_by !== $request->user()->id) {
+                abort(403, 'Unauthorized');
+            }
+        }
 
         $request->validate([
-            'questions' => 'required|array',
-            'questions.*.id' => 'required|uuid|exists:questions,id',
-            'questions.*.sort_order' => 'required|integer|min:0',
+            'order' => 'required|array',
+            'order.*' => 'required|uuid|exists:questions,id',
         ]);
 
-        foreach ($request->questions as $questionData) {
-            Question::where('id', $questionData['id'])
+        foreach ($request->order as $index => $questionId) {
+            Question::where('id', $questionId)
                 ->where('form_id', $form->id)
-                ->update(['sort_order' => $questionData['sort_order']]);
+                ->update(['sort_order' => $index]);
         }
 
         return response()->json(['message' => 'Questions reordered successfully']);

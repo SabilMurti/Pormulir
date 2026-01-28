@@ -15,6 +15,7 @@ class UpdateWorkspaceRequest extends FormRequest
     {
         return [
             'name' => 'sometimes|string|max:255',
+            'description' => 'nullable|string|max:1000',
             'settings' => 'nullable|array',
         ];
     }

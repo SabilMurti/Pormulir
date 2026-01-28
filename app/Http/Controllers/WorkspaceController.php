@@ -20,6 +20,7 @@ class WorkspaceController extends Controller
             ->workspaces()
             ->with('owner')
             ->withCount('forms')
+            ->withCount('members')
             ->get();
 
         return WorkspaceResource::collection($workspaces);
@@ -29,6 +30,7 @@ class WorkspaceController extends Controller
     {
         $workspace = Workspace::create([
             'name' => $request->name,
+            'description' => $request->description,
             'slug' => Str::slug($request->name) . '-' . Str::random(6),
             'owner_id' => $request->user()->id,
             'settings' => $request->settings ?? [],

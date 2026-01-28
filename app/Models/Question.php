@@ -17,6 +17,8 @@ class Question extends Model
         'type',
         'content',
         'description',
+        'is_required',
+        'settings',
         'media',
         'validation',
         'correct_answer',
@@ -26,6 +28,8 @@ class Question extends Model
     ];
 
     protected $casts = [
+        'is_required' => 'boolean',
+        'settings' => 'array',
         'media' => 'array',
         'validation' => 'array',
         'correct_answer' => 'array',
@@ -38,6 +42,7 @@ class Question extends Model
         'long_text',
         'multiple_choice',
         'checkboxes',
+        'checkbox', // alias for checkboxes
         'dropdown',
         'number',
         'email',
@@ -47,7 +52,11 @@ class Question extends Model
         'file_upload',
         'rating',
         'scale',
+        'linear_scale', // alias for scale
         'section',
+        'image',
+        'video',
+        'matrix',
     ];
 
     public function form(): BelongsTo

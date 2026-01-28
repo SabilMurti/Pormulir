@@ -1,0 +1,287 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   PORMULIR DESIGN SYSTEM
+   Modern, Minimalist (Typeform/Notion-inspired)
+   ============================================ */
+
+/* Base Styles */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #1e293b;
+    background-color: #f8fafc;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.25;
+    color: #0f172a;
+}
+
+h1 { font-size: 2.25rem; }
+h2 { font-size: 1.875rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+h5 { font-size: 1.125rem; }
+h6 { font-size: 1rem; }
+
+/* Focus States */
+:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+}
+
+/* Selection */
+::selection {
+    background-color: #e0e7ff;
+    color: #312e81;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Utility Classes */
+.animate-fade-in { animation: fadeIn 0.2s ease-out; }
+.animate-slide-up { animation: slideUp 0.3s ease-out; }
+.animate-slide-down { animation: slideDown 0.3s ease-out; }
+.animate-scale-in { animation: scaleIn 0.2s ease-out; }
+.animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+.animate-spin { animation: spin 1s linear infinite; }
+
+/* Glass Effect */
+.glass {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-dark {
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+/* Gradient Backgrounds */
+.gradient-primary {
+    background: linear-gradient(135deg, #6366f1, #4338ca);
+}
+
+.gradient-hero {
+    background: linear-gradient(135deg, #4f46e5 0%, #3730a3 50%, #0f172a 100%);
+}
+
+.gradient-mesh {
+    background-image:
+        radial-gradient(at 40% 20%, #e0e7ff 0px, transparent 50%),
+        radial-gradient(at 80% 0%, #d1fae5 0px, transparent 50%),
+        radial-gradient(at 0% 50%, #eef2ff 0px, transparent 50%),
+        radial-gradient(at 80% 50%, #ecfdf5 0px, transparent 50%),
+        radial-gradient(at 0% 100%, #e0e7ff 0px, transparent 50%);
+}
+
+/* Card Styles */
+.card {
+    @apply bg-white rounded-xl shadow-md border border-slate-200 transition-all;
+}
+
+.card:hover {
+    @apply shadow-lg border-slate-300;
+}
+
+.card-interactive:hover {
+    @apply -translate-y-0.5;
+}
+
+/* Button Base */
+.btn {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium rounded-lg transition-all cursor-pointer border-none;
+}
+
+.btn:disabled {
+    @apply opacity-50 cursor-not-allowed;
+}
+
+.btn-primary {
+    @apply bg-primary-600 text-white hover:bg-primary-700;
+}
+
+.btn-secondary {
+    @apply bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 hover:border-slate-400;
+}
+
+.btn-ghost {
+    @apply bg-transparent text-slate-600 hover:bg-slate-100;
+}
+
+.btn-danger {
+    @apply bg-red-500 text-white hover:bg-red-600;
+}
+
+.btn-lg {
+    @apply px-7 py-3.5 text-base;
+}
+
+.btn-sm {
+    @apply px-3.5 py-1.5 text-xs;
+}
+
+/* Input Base */
+.input {
+    @apply w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-lg bg-white text-slate-800 transition-all;
+}
+
+.input:hover {
+    @apply border-slate-400;
+}
+
+.input:focus {
+    @apply outline-none border-primary-500 ring-2 ring-primary-100;
+}
+
+.input::placeholder {
+    @apply text-slate-400;
+}
+
+.input-error {
+    @apply border-red-500;
+}
+
+.input-error:focus {
+    @apply ring-red-100;
+}
+
+/* Badge */
+.badge {
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full;
+}
+
+.badge-primary {
+    @apply bg-primary-100 text-primary-700;
+}
+
+.badge-success {
+    @apply bg-emerald-100 text-emerald-700;
+}
+
+.badge-warning {
+    @apply bg-amber-100 text-amber-700;
+}
+
+.badge-error {
+    @apply bg-red-100 text-red-700;
+}
+
+.badge-neutral {
+    @apply bg-slate-100 text-slate-600;
+}
+
+/* Loading Spinner */
+.spinner {
+    @apply w-5 h-5 border-2 border-slate-200 border-t-primary-600 rounded-full;
+    animation: spin 0.8s linear infinite;
+}
+
+/* Skeleton Loading */
+.skeleton {
+    @apply bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 bg-[length:200%_100%] rounded-md;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Empty State */
+.empty-state {
+    @apply flex flex-col items-center justify-center p-12 text-center;
+}
+
+.empty-state-icon {
+    @apply w-16 h-16 mb-4 text-slate-300;
+}
+
+.empty-state-title {
+    @apply text-lg font-semibold text-slate-700 mb-2;
+}
+
+.empty-state-description {
+    @apply text-sm text-slate-500 max-w-xs;
+}
+
+/* Responsive Hide/Show */
+@media (max-width: 640px) {
+    .hide-mobile { display: none !important; }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+    .hide-tablet { display: none !important; }
+}
+
+@media (min-width: 1025px) {
+    .hide-desktop { display: none !important; }
+}
