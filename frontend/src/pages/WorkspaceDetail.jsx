@@ -24,6 +24,12 @@ import EmptyState from '../components/ui/EmptyState';
 import workspaceService from '../services/workspace';
 import formService from '../services/form';
 
+// Helper to strip HTML tags for display
+const stripHtml = (html) => {
+  if (!html) return '';
+  return String(html).replace(/<[^>]+>/g, '').trim();
+};
+
 export function WorkspaceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -215,11 +221,11 @@ export function WorkspaceDetail() {
                     <div className="flex-1 min-w-0">
                       <Link to={`/forms/${form.id}/edit`}>
                         <h3 className="font-semibold text-slate-900 truncate group-hover:text-primary-600 transition-colors">
-                          {form.title}
+                          {stripHtml(form.title)}
                         </h3>
                       </Link>
                       <p className="text-sm text-slate-500 line-clamp-2 mt-1">
-                        {form.description || 'No description'}
+                        {stripHtml(form.description) || 'No description'}
                       </p>
                     </div>
                     <Dropdown
@@ -367,7 +373,7 @@ export function WorkspaceDetail() {
                   placeholder="Describe your workspace..."
                 />
               </div>
-              <Button onClick={handleUpdateWorkspace} loading={processing} className="mt-2">
+              <Button onClick={handleUpdateWorkspace} isLoading={processing} className="mt-2">
                 Save Changes
               </Button>
             </div>
@@ -418,7 +424,7 @@ export function WorkspaceDetail() {
             <Button variant="secondary" onClick={() => setShowInviteModal(false)}>
               Cancel
             </Button>
-            <Button onClick={handleInviteMember} loading={processing}>
+            <Button onClick={handleInviteMember} isLoading={processing}>
               Send Invitation
             </Button>
           </div>
@@ -449,7 +455,7 @@ export function WorkspaceDetail() {
             <Button variant="secondary" onClick={() => setShowEditModal(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateWorkspace} loading={processing}>
+            <Button onClick={handleUpdateWorkspace} isLoading={processing}>
               Save Changes
             </Button>
           </div>

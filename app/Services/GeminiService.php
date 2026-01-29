@@ -68,9 +68,51 @@ Soal saat ini:
 Instruksi perbaikan:
 {$instruction}
 
+PENTING - Gunakan HTML formatting untuk membuat soal lebih menarik dan terstruktur:
+
+1. TABEL (Sangat Direkomendasikan untuk Data/Perbandingan):
+   Gunakan tag HTML table standar. Contoh struktur:
+   <table>
+     <tr>
+       <th>Header 1</th>
+       <th>Header 2</th>
+     </tr>
+     <tr>
+       <td>Data 1</td>
+       <td>Data 2</td>
+     </tr>
+   </table>
+   - Gunakan tabel untuk: membandingkan dua hal, menampilkan data statistik, atau menyajikan langkah-langkah.
+
+2. LIST & STRUKTUR:
+   - Bullet List: <ul><li>Item 1</li><li>Item 2</li></ul>
+   - Numbered List: <ol><li>Langkah 1</li><li>Langkah 2</li></ol>
+   - Code Block: <pre><code>console.log('Hello');</code></pre> (untuk soal pemrograman)
+
+3. ALIGMENT & STYLE:
+   - Rata Tengah: <p style="text-align: center">Teks Tengah</p>
+   - Rata Kanan: <p style="text-align: right">Teks Kanan</p>
+   - Highlight: <mark>Teks Penting</mark>
+
+4. FORMAT KHUSUS LAINNYA:
+   - Matematika: <sup>2</sup> (pangkat), <sub>2</sub> (subskrip)
+   - Simbol: ±, ×, ÷, √, ∛, ≠, ≈, ≤, ≥, ∞, π, α, β, θ, ∑
+   - Pecahan: ½, ⅓, ⅔, ¼, ¾
+- Himpunan: ∈, ∉, ⊂, ∪, ∩, ∅
+- Ayat/Hadits: <blockquote><em>teks ayat</em></blockquote>
+   - Contoh: <blockquote><em>"Innalillahi wa inna ilaihi raji'un"</em></blockquote> atau <blockquote><em>"إِنَّا لِلَّٰهِ وَإِنَّا إِلَيْهِ رَاجِعُونَ"</em></blockquote>
+
+   - Penekanan: <strong>teks tebal</strong>, <em>teks miring</em>, <u>garis bawah</u>, <s>coret</s>
+
+5. MEDIA (Gunakan URL Eksternal, JANGAN minta upload):
+   - Image: <img src="URL_VALID_GAMBAR_PUBLIK" alt="Deskripsi"> (Hanya jika Anda memiliki URL gambar yang relevan dan publik. Jangan gunakan placeholder lokal).
+   - Video: Jika perlu, berikan link YouTube.
+
+CATATAN: JANGAN gunakan fitur upload file atau meminta user mengupload file. Gunakan format teks rich text di atas semaksimal mungkin.
+
 Berikan hasil perbaikan soal dalam format JSON:
 {
-  "content": "pertanyaan yang sudah diperbaiki",
+  "content": "pertanyaan yang sudah diperbaiki (dengan HTML formatting jika perlu)",
   "description": "penjelasan singkat (opsional)",
   "options": [
     {"content": "pilihan A", "is_correct": false},
@@ -122,11 +164,31 @@ Persyaratan:
 - Untuk checkbox: bisa lebih dari 1 jawaban benar
 - Untuk short_text/long_text: berikan contoh jawaban benar
 
+PENTING - Gunakan HTML formatting untuk konten yang memerlukan format khusus:
+
+1. TABEL & STRUKTUR DATA:
+   - Table: Gunakan <table>, <tr>, <th>, <td> untuk menyajikan data terstruktur.
+   - List: Gunakan <ul> (bullet) atau <ol> (nomor) untuk daftar.
+   - Code: Gunakan <pre><code>...</code></pre> untuk snippet kode.
+
+2. FORMAT TEKS & MATEMATIKA:
+   - Style: <strong>Tebal</strong>, <em>Miring</em>, <u>Garis Bawah</u>, <s>Coret</s>, <mark>Highlight</mark>
+   - Alignment: <p style="text-align: center|right|justify">Teks</p>
+   - Math: <sup>2</sup>, <sub>2</sub>, ±, ×, ÷, √, ∑, ∞, π, α, β, dst.
+   - Himpunan: ∈, ∉, ⊂, ∪, ∩, ∅
+- Ayat/Hadits: <blockquote><em>teks ayat</em></blockquote>
+   - Contoh: <blockquote><em>"Innalillahi wa inna ilaihi raji'un"</em></blockquote> atau <blockquote><em>"إِنَّا لِلَّٰهِ وَإِنَّا إِلَيْهِ رَاجِعُونَ"</em></blockquote>
+
+3. KUTIPAN & MEDIA:
+   - Quote: <blockquote><em>"Teks Kutipan"</em></blockquote>
+   - Image: <img src="URL"> (Hanya jika URL publik tersedia).
+   - JANGAN gunakan upload file. Gunakan deskripsi teks atau URL eksternal.
+
 Format output JSON array:
 [
   {
     "type": "{$jsonTypeField}",
-    "content": "pertanyaan",
+    "content": "pertanyaan dengan HTML formatting jika diperlukan",
     "description": "penjelasan tambahan (opsional)",
     "points": 10,
     "correct_answer": "jawaban benar atau array ID opsi",
@@ -182,11 +244,31 @@ Persyaratan:
 - Untuk pilihan ganda: 4 opsi, tandai yang benar
 - Beri penjelasan untuk setiap jawaban
 
+PENTING - Gunakan STRUKTUR HTML LENGKAP agar soal menarik dan profesional:
+
+1. TABEL (Sangat Berguna untuk Perbandingan/Data):
+   <table><tr><th>Header A</th><th>Header B</th></tr><tr><td>Data A</td><td>Data B</td></tr></table>
+   Gunakan tabel untuk menyajikan data, perbedaan, atau klasifikasi.
+
+2. FORMAT TEKS & LIST:
+   - <strong>Tebal</strong>, <em>Miring</em>, <mark>Highlight</mark>, <u>Underline</u>
+   - List: <ul><li>Item</li></ul> atau <ol><li>Langkah</li></ol>
+   - Alignment: <p style="text-align: center">Teks Tengah</p>
+   - Ayat/Hadits: <blockquote><em>teks ayat</em></blockquote>
+   - Contoh: <blockquote><em>"Innalillahi wa inna ilaihi raji'un"</em></blockquote> atau <blockquote><em>"إِنَّا لِلَّٰهِ وَإِنَّا إِلَيْهِ رَاجِعُونَ"</em></blockquote>
+
+3. SPECIAL CONTENT:
+   - Code: <pre><code>code here</code></pre>
+   - Quote: <blockquote><em>"Kutipan"</em></blockquote>
+   - Math: <sup>2</sup>, <sub>2</sub>, √, ∑, π, ∞, ±, ×, ÷
+   - Simbol: α, β, θ, ≤, ≥, ≠, ≈
+   - Himpunan: ∈, ∉, ⊂, ∪, ∩, ∅
+
 Format output JSON array:
 [
   {
     "type": "{$jsonTypeField}",
-    "content": "pertanyaan",
+    "content": "pertanyaan dengan HTML formatting jika diperlukan",
     "description": null,
     "points": 10,
     "correct_answer": "jawaban benar",

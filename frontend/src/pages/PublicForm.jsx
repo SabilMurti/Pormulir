@@ -132,10 +132,21 @@ export function PublicForm() {
       setForm(response.form || response.data || response);
     } catch (error) {
       console.error('Failed to fetch form:', error);
-      if (error.response?.status === 404) {
-        setError('Form not found or no longer available.');
+      const errorCode = error.response?.data?.code;
+      const errorMessage = error.response?.data?.error;
+      
+      if (errorCode === 'CLOSED') {
+        setError('Formulir ini sudah ditutup dan tidak menerima respons lagi.');
+      } else if (errorCode === 'DRAFT') {
+        setError('Formulir ini belum dipublikasikan.');
+      } else if (error.response?.status === 404 || errorCode === 'NOT_FOUND') {
+        setError('Formulir tidak ditemukan atau sudah tidak tersedia.');
+      } else if (errorCode === 'LOGIN_REQUIRED') {
+        setError('Login diperlukan untuk mengakses formulir ini.');
+      } else if (errorCode === 'RESTRICTED_ACCESS') {
+        setError('Anda tidak memiliki akses ke formulir ini.');
       } else {
-        setError('Failed to load form. Please try again later.');
+        setError(errorMessage || 'Gagal memuat formulir. Silakan coba lagi nanti.');
       }
     } finally {
       setLoading(false);
@@ -339,9 +350,15 @@ export function PublicForm() {
                 <FileText className="w-5 h-5 text-slate-500" />
               </div>
               <div>
-                <h2 className="font-semibold text-slate-900">{form.title}</h2>
+                <div 
+                  className="font-semibold text-slate-900 prose prose-p:my-0 max-w-none" 
+                  dangerouslySetInnerHTML={{ __html: form.title }} 
+                />
                 {form.description && (
-                  <p className="text-sm text-slate-500 mt-1">{form.description}</p>
+                  <div 
+                    className="text-sm text-slate-500 mt-1 prose prose-sm prose-p:my-0 max-w-none" 
+                    dangerouslySetInnerHTML={{ __html: form.description }} 
+                  />
                 )}
               </div>
             </div>
@@ -406,12 +423,18 @@ export function PublicForm() {
                     )}
                   </span>
                   <div className="flex-1">
-                    <h3 className="font-medium text-slate-700">
-                      {question.content}
-                      {question.is_required && <span className="text-slate-400 ml-1">*</span>}
-                    </h3>
+                    <div className="flex items-start gap-1">
+                      <div 
+                        className="font-medium text-slate-700 prose prose-sm prose-p:my-0 max-w-none" 
+                        dangerouslySetInnerHTML={{ __html: question.content }} 
+                      />
+                      {question.is_required && <span className="text-slate-400 ml-1 select-none">*</span>}
+                    </div>
                     {question.description && (
-                      <p className="text-sm text-slate-400 mt-1">{question.description}</p>
+                      <div 
+                        className="text-sm text-slate-400 mt-1 prose prose-sm prose-p:my-0 max-w-none" 
+                        dangerouslySetInnerHTML={{ __html: question.description }} 
+                      />
                     )}
                     {/* Points indicator */}
                     {hasReview && reviewData.points_earned !== null && (
@@ -485,7 +508,10 @@ export function PublicForm() {
               <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
                 <FileText className="w-5 h-5 text-primary-600" />
               </div>
-              <span className="font-semibold text-slate-900">{form.title}</span>
+              <div 
+                className="font-semibold text-slate-900 prose prose-sm prose-p:my-0 prose-headings:my-0 prose-blockquote:my-0 prose-blockquote:border-l-2 max-w-none line-clamp-1" 
+                dangerouslySetInnerHTML={{ __html: form.title }} 
+              />
             </div>
             {form.settings?.exam_mode?.enabled && form.settings?.exam_mode?.time_limit_minutes && (
               <div className="flex items-center gap-2 text-slate-600">
@@ -515,9 +541,15 @@ export function PublicForm() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6 border-t-[10px] border-t-primary-600">
           {/* Title & Description */}
           <div className="p-6">
-            <h1 className="text-3xl font-normal text-slate-900 mb-2">{form.title}</h1>
+            <div 
+              className="text-3xl font-normal text-slate-900 mb-2 prose prose-2xl prose-p:my-0 prose-headings:my-0 prose-blockquote:border-l-primary-600 prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-slate-700 max-w-none" 
+              dangerouslySetInnerHTML={{ __html: form.title }} 
+            />
             {form.description && (
-              <p className="text-sm text-slate-600 whitespace-pre-wrap">{form.description}</p>
+              <div 
+                className="text-sm text-slate-600 prose prose-sm prose-p:my-1 prose-blockquote:border-l-primary-600 prose-blockquote:pl-3 max-w-none" 
+                dangerouslySetInnerHTML={{ __html: form.description }} 
+              />
             )}
           </div>
 
@@ -535,19 +567,6 @@ export function PublicForm() {
                     Ganti akun
                   </button>
                 </div>
-                <div className="flex items-center gap-2 text-slate-500">
-                   <Cloud className={`w-5 h-5 ${
-                     (form.settings?.general?.require_login || form.settings?.general?.collect_email) 
-                       ? 'text-primary-500' 
-                       : 'text-slate-400'
-                   }`} />
-                   <span className="text-xs">
-                     {(form.settings?.general?.require_login || form.settings?.general?.collect_email)
-                       ? 'Email direkam'
-                       : 'Tidak dibagikan'
-                     }
-                   </span>
-                </div>
               </>
             ) : (
               // Not Logged In State
@@ -561,11 +580,6 @@ export function PublicForm() {
                 </button>
               </div>
             )}
-          </div>
-          
-          {/* Required Label */}
-          <div className="px-6 pb-2">
-            <p className="text-xs text-red-500">* Menunjukkan pertanyaan yang wajib diisi</p>
           </div>
         </div>
 
@@ -609,11 +623,14 @@ export function PublicForm() {
               {activePage > 0 && (
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 border-t-[5px] border-t-purple-500">
                    <div 
-                      className="text-2xl font-normal text-slate-900 mb-2 prose prose-lg prose-p:my-0 max-w-none" 
+                      className="text-2xl font-normal text-slate-900 mb-2 prose prose-lg prose-p:my-0 prose-blockquote:border-l-purple-600 prose-blockquote:pl-4 prose-blockquote:italic max-w-none" 
                       dangerouslySetInnerHTML={{ __html: pageData.section.title }} 
                    />
                    {pageData.section.description && (
-                     <p className="text-sm text-slate-600 whitespace-pre-wrap">{pageData.section.description}</p>
+                     <div 
+                       className="text-sm text-slate-600 prose prose-sm prose-p:my-0 prose-blockquote:border-l-purple-600 prose-blockquote:pl-3 max-w-none" 
+                       dangerouslySetInnerHTML={{ __html: pageData.section.description }} 
+                     />
                    )}
                 </div>
               )}

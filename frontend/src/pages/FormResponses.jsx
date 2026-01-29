@@ -190,7 +190,10 @@ export function FormResponses() {
               </Button>
             </Link>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">{form?.title}</h1>
+          <h1 
+            className="text-2xl font-bold text-slate-900 prose prose-xl max-w-none"
+            dangerouslySetInnerHTML={{ __html: form?.title || 'Form Responses' }} 
+          />
           <p className="text-slate-600 mt-1">Student Answers & Grades</p>
         </div>
         <div className="flex gap-2">
@@ -358,7 +361,8 @@ export function FormResponses() {
             <Card key={question.id}>
               <CardHeader>
                 <h3 className="font-medium text-slate-900">
-                  {i + 1}. {question.content}
+                  <span className="mr-1">{i + 1}.</span>
+                  <span dangerouslySetInnerHTML={{ __html: question.content }} />
                 </h3>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-sm text-slate-500">{question.type}</span>
@@ -380,7 +384,10 @@ export function FormResponses() {
                   <div className="space-y-2">
                     {question.options.map((opt) => (
                       <div key={opt.id} className="flex items-center justify-between">
-                        <span className="text-sm text-slate-600">{opt.content}</span>
+                        <span 
+                          className="text-sm text-slate-600 prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{ __html: opt.content }} 
+                        />
                         <div className="flex items-center gap-2">
                           <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
                             <div 
@@ -487,7 +494,10 @@ export function FormResponses() {
                             <span className="text-xs text-slate-500">{question.points} pts</span>
                           )}
                         </div>
-                        <p className="font-medium text-slate-900">{question.content}</p>
+                        <p 
+                          className="font-medium text-slate-900 prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{ __html: question.content }} 
+                        />
                       </div>
                       {hasCorrectAnswer && (
                         <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
@@ -549,15 +559,16 @@ export function FormResponses() {
                               </div>
 
                               {/* Option content */}
-                              <span className={`flex-1 ${
-                                isCorrectOption 
-                                  ? 'text-emerald-800 font-medium' 
-                                  : isSelected 
-                                  ? 'text-red-800' 
-                                  : 'text-slate-700'
-                              }`}>
-                                {option.content}
-                              </span>
+                              <span 
+                                className={`flex-1 prose prose-sm max-w-none ${
+                                  isCorrectOption 
+                                    ? 'text-emerald-800 font-medium' 
+                                    : isSelected 
+                                    ? 'text-red-800' 
+                                    : 'text-slate-700'
+                                }`}
+                                dangerouslySetInnerHTML={{ __html: option.content }}
+                              />
 
                               {/* Labels */}
                               {isCorrectOption && (
@@ -578,9 +589,14 @@ export function FormResponses() {
                       /* Text answer */
                       <div className="mt-3 p-3 bg-slate-100 rounded-lg">
                         <p className="text-sm text-slate-500 mb-1">Student's Answer:</p>
-                        <p className="text-slate-900">
-                          {studentResponse?.answer || <span className="italic text-slate-400">No answer</span>}
-                        </p>
+                        {studentResponse?.answer ? (
+                          <div 
+                            className="text-slate-900 prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{ __html: studentResponse.answer }} 
+                          />
+                        ) : (
+                          <p className="italic text-slate-400">No answer</p>
+                        )}
                       </div>
                     )}
 

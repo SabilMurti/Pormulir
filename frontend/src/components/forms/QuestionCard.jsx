@@ -22,7 +22,7 @@ import {
   Link,
   Table
 } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { cn, generateId } from '../../utils/helpers';
 import { Input, Textarea } from '../ui/Input';
 import { Dropdown, DropdownItem, DropdownDivider } from '../ui/Dropdown';
@@ -519,4 +519,12 @@ export function QuestionCard({
   );
 }
 
-export default QuestionCard;
+// Memoize to prevent re-renders when other questions in the list change
+export default memo(QuestionCard, (prevProps, nextProps) => {
+  // Only re-render if this specific question's data or selection state changed
+  return (
+    prevProps.question === nextProps.question &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.index === nextProps.index
+  );
+});

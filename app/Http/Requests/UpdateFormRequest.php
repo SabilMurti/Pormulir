@@ -18,6 +18,8 @@ class UpdateFormRequest extends FormRequest
             'description' => 'nullable|string',
             'settings' => 'nullable|array',
             'theme' => 'nullable|array',
+            'access_type' => 'nullable|in:public,restricted',
+            'allowed_emails' => 'nullable|array',
         ];
     }
 }
