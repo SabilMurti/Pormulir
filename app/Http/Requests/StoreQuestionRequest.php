@@ -27,8 +27,8 @@ class StoreQuestionRequest extends FormRequest
             'explanation' => 'nullable|string',
             'points' => 'nullable|integer|min:0',
             'options' => 'nullable|array',
-            'options.*.content' => 'required_with:options|string',
-            'options.*.is_correct' => 'nullable|boolean',
+            // Relaxed validation - controller handles normalization
+            'options.*' => 'nullable',
         ];
     }
 }

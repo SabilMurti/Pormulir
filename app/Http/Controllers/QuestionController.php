@@ -26,17 +26,31 @@ class QuestionController extends Controller
 
         $maxOrder = $form->questions()->max('sort_order') ?? 0;
 
+        $type = $request->type;
+        $typeMap = [
+            'checkbox' => 'checkboxes',
+            'linear_scale' => 'scale',
+        ];
+        if (isset($typeMap[$type])) {
+            $type = $typeMap[$type];
+        }
+
         $question = $form->questions()->create([
             ...$request->validated(),
+            'type' => $type,
             'sort_order' => $maxOrder + 1,
         ]);
 
         // Create options if provided
         if ($request->has('options') && $question->hasOptions()) {
             foreach ($request->options as $index => $optionData) {
+                // Robust handling for string or array option data
+                $content = is_array($optionData) ? ($optionData['content'] ?? '') : (string)$optionData;
+                $isCorrect = is_array($optionData) ? ($optionData['is_correct'] ?? false) : false;
+
                 $question->options()->create([
-                    'content' => $optionData['content'],
-                    'is_correct' => $optionData['is_correct'] ?? false,
+                    'content' => $content,
+                    'is_correct' => $isCorrect,
                     'sort_order' => $index,
                 ]);
             }
@@ -56,16 +70,31 @@ class QuestionController extends Controller
             }
         }
 
-        $question->update($request->validated());
+        $data = $request->validated();
+        if (isset($data['type'])) {
+            $typeMap = [
+                'checkbox' => 'checkboxes',
+                'linear_scale' => 'scale',
+            ];
+            if (isset($typeMap[$data['type']])) {
+                $data['type'] = $typeMap[$data['type']];
+            }
+        }
+
+        $question->update($data);
 
         // Update options if provided
         if ($request->has('options')) {
             $question->options()->delete();
             
             foreach ($request->options as $index => $optionData) {
+                // Robust handling for string or array option data
+                $content = is_array($optionData) ? ($optionData['content'] ?? '') : (string)$optionData;
+                $isCorrect = is_array($optionData) ? ($optionData['is_correct'] ?? false) : false;
+
                 $question->options()->create([
-                    'content' => $optionData['content'],
-                    'is_correct' => $optionData['is_correct'] ?? false,
+                    'content' => $content,
+                    'is_correct' => $isCorrect,
                     'sort_order' => $index,
                 ]);
             }

@@ -15,6 +15,13 @@ import Button from '../components/ui/Button';
 import { Input, Textarea } from '../components/ui/Input';
 import aiService from '../services/ai';
 import formService from '../services/form';
+import workspaceService from '../services/workspace';
+
+// Helper to strip HTML tags for compact display
+const stripHtml = (html) => {
+  if (!html) return '';
+  return String(html).replace(/<[^>]+>/g, '').trim();
+};
 
 const QUESTION_TYPES = [
   { value: 'short_text', label: 'Short Text' },
@@ -52,6 +59,7 @@ export function AIGenerator() {
   const [generatedQuestions, setGeneratedQuestions] = useState([]);
   const [selectedQuestions, setSelectedQuestions] = useState([]);
   const [forms, setForms] = useState([]);
+  const [workspaces, setWorkspaces] = useState([]);
   const [targetFormId, setTargetFormId] = useState('');
   const [addingToForm, setAddingToForm] = useState(false);
 
@@ -67,10 +75,15 @@ export function AIGenerator() {
 
   const fetchForms = async () => {
     try {
-      const response = await formService.getAll();
-      setForms(response.data || []);
+      const [formsData, workspacesData] = await Promise.all([
+        formService.getAll().catch(() => ({ data: [] })),
+        workspaceService.getAll().catch(() => ({ data: [] }))
+      ]);
+      // formService.getAll() returns response.data which is {data: [...]} structure
+      setForms(formsData?.data || formsData || []);
+      setWorkspaces(workspacesData?.data || workspacesData || []);
     } catch (error) {
-      console.error('Failed to fetch forms:', error);
+      console.error('Failed to fetch data:', error);
     }
   };
 
@@ -156,7 +169,8 @@ export function AIGenerator() {
       navigate(`/forms/${targetFormId}/edit`);
     } catch (error) {
       console.error('Failed to add questions:', error);
-      alert('Failed to add questions to form');
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to add questions to form';
+      alert(errorMsg);
     } finally {
       setAddingToForm(false);
     }
@@ -171,12 +185,25 @@ export function AIGenerator() {
     setAddingToForm(true);
     try {
       // Create new form
-      const formResponse = await formService.create({
+      const defaultWorkspaceId = workspaces.length > 0 ? workspaces[0].id : null;
+      if (!defaultWorkspaceId) {
+        alert('You need a workspace to create a form. Please create one first in the dashboard.');
+        setAddingToForm(false);
+        return;
+      }
+
+      const formData = await formService.create({
         title: topic || 'AI Generated Form',
         description: `Form generated from topic: ${topic}`,
+        workspace_id: defaultWorkspaceId
       });
 
-      const formId = formResponse.data.id;
+      // formService.create returns response.data which contains {data: form}
+      const formId = formData?.data?.id || formData?.id;
+      if (!formId) {
+        throw new Error('Failed to get form ID from response');
+      }
+
       const questionsToAdd = selectedQuestions.map(i => generatedQuestions[i]);
       
       // Add questions to form
@@ -187,7 +214,8 @@ export function AIGenerator() {
       navigate(`/forms/${formId}/edit`);
     } catch (error) {
       console.error('Failed to create form:', error);
-      alert('Failed to create form');
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to create form';
+      alert(errorMsg);
     } finally {
       setAddingToForm(false);
     }
@@ -431,9 +459,10 @@ export function AIGenerator() {
                           )}
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-slate-900">
-                            {index + 1}. {question.content || question.question || question.text}
-                          </p>
+                          <div className="font-medium text-slate-900 prose prose-sm prose-p:my-0 max-w-none">
+                            <span>{index + 1}. </span>
+                            <span dangerouslySetInnerHTML={{ __html: question.content || question.question || question.text }} />
+                          </div>
                           {question.options && question.options.length > 0 && (
                             <div className="mt-2 space-y-1">
                               {question.options.map((opt, i) => {
@@ -442,20 +471,23 @@ export function AIGenerator() {
                                 return (
                                   <div 
                                     key={i} 
-                                    className={`flex items-center gap-2 text-sm ${
+                                    className={`flex items-start gap-2 text-sm ${
                                       isCorrect ? 'text-emerald-700 font-medium' : 'text-slate-600'
                                     }`}
                                   >
-                                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
+                                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-0.5 ${
                                       isCorrect 
                                         ? 'bg-emerald-500 text-white' 
                                         : 'bg-slate-200 text-slate-600'
                                     }`}>
                                       {isCorrect ? '✓' : String.fromCharCode(65 + i)}
                                     </span>
-                                    <span>{optContent}</span>
+                                    <span 
+                                      className="prose prose-sm prose-p:my-0 max-w-none"
+                                      dangerouslySetInnerHTML={{ __html: optContent }} 
+                                    />
                                     {isCorrect && (
-                                      <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                                      <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full flex-shrink-0">
                                         Jawaban Benar
                                       </span>
                                     )}
@@ -490,7 +522,7 @@ export function AIGenerator() {
                     >
                       <option value="">Select a form...</option>
                       {forms.map(form => (
-                        <option key={form.id} value={form.id}>{form.title}</option>
+                        <option key={form.id} value={form.id}>{stripHtml(form.title)}</option>
                       ))}
                     </select>
                     <Button 

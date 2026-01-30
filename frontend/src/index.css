@@ -19,7 +19,14 @@ html {
 }
 
 body {
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family:
+        "Inter",
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        sans-serif;
     color: #1e293b;
     background-color: #f8fafc;
     line-height: 1.6;
@@ -28,19 +35,36 @@ body {
 }
 
 /* Typography */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
     font-weight: 600;
     letter-spacing: -0.025em;
     line-height: 1.25;
     color: #0f172a;
 }
 
-h1 { font-size: 2.25rem; }
-h2 { font-size: 1.875rem; }
-h3 { font-size: 1.5rem; }
-h4 { font-size: 1.25rem; }
-h5 { font-size: 1.125rem; }
-h6 { font-size: 1rem; }
+h1 {
+    font-size: 2.25rem;
+}
+h2 {
+    font-size: 1.875rem;
+}
+h3 {
+    font-size: 1.5rem;
+}
+h4 {
+    font-size: 1.25rem;
+}
+h5 {
+    font-size: 1.125rem;
+}
+h6 {
+    font-size: 1rem;
+}
 
 /* Focus States */
 :focus-visible {
@@ -75,42 +99,85 @@ h6 { font-size: 1rem; }
 
 /* Animations */
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes slideUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @keyframes slideDown {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @keyframes scaleIn {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
 }
 
 @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Utility Classes */
-.animate-fade-in { animation: fadeIn 0.2s ease-out; }
-.animate-slide-up { animation: slideUp 0.3s ease-out; }
-.animate-slide-down { animation: slideDown 0.3s ease-out; }
-.animate-scale-in { animation: scaleIn 0.2s ease-out; }
-.animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-.animate-spin { animation: spin 1s linear infinite; }
+.animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+}
+.animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+}
+.animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+}
+.animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+}
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
 
 /* Glass Effect */
 .glass {
@@ -252,8 +319,12 @@ h6 { font-size: 1rem; }
 }
 
 @keyframes skeleton-loading {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
 }
 
 /* Empty State */
@@ -275,13 +346,180 @@ h6 { font-size: 1rem; }
 
 /* Responsive Hide/Show */
 @media (max-width: 640px) {
-    .hide-mobile { display: none !important; }
+    .hide-mobile {
+        display: none !important;
+    }
 }
 
 @media (min-width: 641px) and (max-width: 1024px) {
-    .hide-tablet { display: none !important; }
+    .hide-tablet {
+        display: none !important;
+    }
 }
 
 @media (min-width: 1025px) {
-    .hide-desktop { display: none !important; }
+    .hide-desktop {
+        display: none !important;
+    }
+}
+
+/* ============================================
+   TIPTAP RICH TEXT EDITOR STYLES
+   ============================================ */
+
+/* Placeholder */
+.tiptap p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    color: #94a3b8;
+    pointer-events: none;
+    height: 0;
+}
+
+.is-editor-empty::before {
+    content: attr(data-placeholder);
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+/* Lists */
+.ProseMirror ul {
+    list-style-type: disc;
+    padding-left: 1.5rem;
+    margin: 0.5rem 0;
+}
+
+.ProseMirror ol {
+    list-style-type: decimal;
+    padding-left: 1.5rem;
+    margin: 0.5rem 0;
+}
+
+.ProseMirror li {
+    margin: 0.25rem 0;
+}
+
+.ProseMirror li p {
+    margin: 0;
+}
+
+/* Code Block */
+.ProseMirror pre {
+    background: #1e293b;
+    color: #e2e8f0;
+    font-family: "JetBrains Mono", "Fira Code", "Monaco", monospace;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    overflow-x: auto;
+    margin: 0.5rem 0;
+}
+
+.ProseMirror code {
+    background: #f1f5f9;
+    color: #e11d48;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-family: "JetBrains Mono", "Fira Code", "Monaco", monospace;
+    font-size: 0.875em;
+}
+
+.ProseMirror pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+}
+
+/* Blockquote */
+.ProseMirror blockquote {
+    border-left: 4px solid #6366f1;
+    padding-left: 1rem;
+    margin: 0.5rem 0;
+    color: #64748b;
+    font-style: italic;
+    background-color: #f8fafc;
+    padding: 0.75rem 1rem;
+    border-radius: 0.25rem;
+}
+
+/* Blockquote for Prose (rendered HTML in PublicForm) */
+.prose blockquote {
+    border-left: 4px solid #6366f1;
+    padding-left: 1rem;
+    margin: 0.75rem 0;
+    color: #64748b;
+    font-style: italic;
+    background-color: #f8fafc;
+    padding: 0.75rem 1rem;
+    border-radius: 0.25rem;
+    quotes: none;
+}
+
+.prose blockquote p {
+    margin: 0;
+}
+
+/* Highlight */
+.ProseMirror mark {
+    background-color: #fef08a;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.125rem;
+}
+
+/* Links */
+.ProseMirror a {
+    color: #3b82f6;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.ProseMirror a:hover {
+    color: #2563eb;
+}
+
+/* Text Alignment */
+.ProseMirror .text-left {
+    text-align: left;
+}
+
+.ProseMirror .text-center {
+    text-align: center;
+}
+
+.ProseMirror .text-right {
+    text-align: right;
+}
+
+.ProseMirror .text-justify {
+    text-align: justify;
+}
+
+/* Subscript & Superscript */
+.ProseMirror sub {
+    font-size: 0.75em;
+    vertical-align: sub;
+}
+
+.ProseMirror sup {
+    font-size: 0.75em;
+    vertical-align: super;
+}
+
+/* Strikethrough */
+.ProseMirror s {
+    text-decoration: line-through;
+}
+
+/* Focus styles for editor */
+.ProseMirror:focus {
+    outline: none;
+}
+
+/* Paragraph spacing */
+.ProseMirror p {
+    margin: 0;
+}
+
+.ProseMirror p + p {
+    margin-top: 0.5rem;
 }

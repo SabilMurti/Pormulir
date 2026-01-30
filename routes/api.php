@@ -3,9 +3,11 @@
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FormController;
+use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PublicFormController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\ResponseController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkspaceController;
 use Illuminate\Support\Facades\Route;
 
@@ -22,6 +24,9 @@ Route::prefix('auth')->group(function () {
 
 // Protected Routes
 Route::middleware('auth:sanctum')->group(function () {
+    // User Lookup
+    Route::post('users/lookup', [UserController::class, 'lookup']);
+
     // Workspaces
     Route::apiResource('workspaces', WorkspaceController::class);
     Route::post('workspaces/{workspace}/invite', [WorkspaceController::class, 'invite']);
@@ -60,6 +65,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('improve', [AIController::class, 'improve']);
         Route::post('forms/{form}/add-questions', [AIController::class, 'addToForm']);
         Route::get('usage', [AIController::class, 'usage']);
+    });
+
+    // Media Upload
+    Route::prefix('media')->group(function () {
+        Route::get('/', [MediaController::class, 'index']);
+        Route::post('upload/image', [MediaController::class, 'uploadImage']);
+        Route::post('upload/document', [MediaController::class, 'uploadDocument']);
+        Route::post('upload/image-url', [MediaController::class, 'uploadImageUrl']);
+        Route::post('video-embed', [MediaController::class, 'addVideoEmbed']);
+        Route::delete('{id}', [MediaController::class, 'destroy']);
     });
 });
 

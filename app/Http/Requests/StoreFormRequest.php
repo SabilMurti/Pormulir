@@ -20,6 +20,7 @@ class StoreFormRequest extends FormRequest
             'description' => 'nullable|string',
             'settings' => 'nullable|array',
             'theme' => 'nullable|array',
+            'workspace_id' => 'nullable|uuid|exists:workspaces,id',
         ];
     }
 }

@@ -46,12 +46,16 @@ class FormController extends Controller
     public function storeStandalone(StoreFormRequest $request): FormResource
     {
         // Require workspace_id in body
-        $request->validate(['workspace_id' => 'required|exists:workspaces,id']);
+        $validated = $request->validated();
         
-        $workspace = Workspace::findOrFail($request->workspace_id);
+        if (empty($validated['workspace_id'])) {
+            abort(422, 'workspace_id is required');
+        }
+        
+        $workspace = Workspace::findOrFail($validated['workspace_id']);
         $this->authorize('update', $workspace);
 
-        $form = new Form($request->validated());
+        $form = new Form($validated);
         $form->workspace_id = $workspace->id;
         $form->created_by = $request->user()->id;
         $form->slug = Str::slug($form->title) . '-' . Str::random(8);
