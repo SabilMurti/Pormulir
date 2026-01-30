@@ -38,6 +38,15 @@ export const aiService = {
     const response = await api.get('/ai/usage');
     return response.data;
   },
+
+  // Analyze form responses with AI
+  async analyzeResponses(formId, prompt, context = null) {
+    const response = await api.post(`/ai/forms/${formId}/analyze-responses`, { 
+      prompt,
+      context 
+    });
+    return response.data;
+  },
 };
 
 export default aiService;

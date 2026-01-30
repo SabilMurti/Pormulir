@@ -20,6 +20,7 @@ class UpdateFormRequest extends FormRequest
             'theme' => 'nullable|array',
             'access_type' => 'nullable|in:public,restricted',
             'allowed_emails' => 'nullable|array',
+            'max_responses' => 'nullable|integer|min:1|max:100000',
         ];
     }
 }

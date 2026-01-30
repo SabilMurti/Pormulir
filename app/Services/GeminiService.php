@@ -136,6 +136,181 @@ PROMPT;
         return $question;
     }
 
+    /**
+     * Analyze form responses with AI
+     */
+    public function analyzeResponses(
+        User $user,
+        \App\Models\Form $form,
+        string $prompt,
+        ?array $frontendContext = null
+    ): string {
+        // Prepare context data from backend
+        $context = $this->prepareResponseContext($form);
+        
+        // Build respondent details if provided from frontend
+        $respondentDetails = '';
+        if ($frontendContext && !empty($frontendContext['respondents'])) {
+            $respondentDetails = "\n=== DAFTAR RESPONDEN (Individu) ===\n";
+            foreach ($frontendContext['respondents'] as $i => $r) {
+                $num = $i + 1;
+                $name = $r['name'] ?? 'Anonymous';
+                $email = $r['email'] ?? '-';
+                $score = isset($r['score']) ? round($r['score']) . '%' : 'N/A';
+                $time = isset($r['time_seconds']) ? round($r['time_seconds']) . ' detik' : 'N/A';
+                $respondentDetails .= "{$num}. {$name} ({$email}): Skor {$score}, Waktu {$time}\n";
+            }
+        }
+
+        // Use frontend averages if available
+        if ($frontendContext) {
+            if (isset($frontendContext['avgScore'])) {
+                $context['average_score'] = round($frontendContext['avgScore'], 1);
+            }
+            if (isset($frontendContext['avgTime'])) {
+                $context['average_time'] = round($frontendContext['avgTime']);
+            }
+            if (isset($frontendContext['total'])) {
+                $context['total_responses'] = $frontendContext['total'];
+            }
+        }
+        
+        $systemPrompt = <<<PROMPT
+Kamu adalah asisten AI untuk menganalisis data respons formulir. Kamu akan membantu user memahami pola, insight, dan temuan dari data respons yang dikumpulkan.
+
+=== DATA FORMULIR ===
+Judul: {$form->title}
+Total Responden: {$context['total_responses']}
+
+=== PERTANYAAN ===
+{$context['questions_summary']}
+
+=== RINGKASAN JAWABAN PER PERTANYAAN ===
+{$context['responses_summary']}
+{$respondentDetails}
+=== STATISTIK ===
+- Rata-rata Skor: {$context['average_score']}%
+- Rata-rata Waktu Pengerjaan: {$context['average_time']} detik
+- Tingkat Penyelesaian: {$context['completion_rate']}%
+
+=== INSTRUKSI ===
+Berikan analisis yang informatif dan actionable. Gunakan markdown formatting untuk membuat jawaban mudah dibaca:
+- Gunakan **bold** untuk menekankan poin penting
+- Gunakan bullet points untuk list
+- Gunakan angka/persentase untuk mendukung insight
+- Berikan rekomendasi konkret jika diminta
+- Jika user bertanya siapa dengan skor tertinggi/terendah, gunakan data DAFTAR RESPONDEN di atas
+
+Jawab dalam Bahasa Indonesia kecuali user bertanya dalam bahasa lain.
+PROMPT;
+
+        $fullPrompt = $systemPrompt . "\n\nPertanyaan User: " . $prompt;
+
+        $result = Gemini::generativeModel(model: self::MODEL)
+            ->generateContent($fullPrompt);
+
+        $response = $result->text();
+
+        // Log usage
+        $this->logUsage($user, 'analyze_responses', []);
+
+        return $response;
+    }
+
+    /**
+     * Prepare context from form responses for AI analysis
+     */
+    private function prepareResponseContext(\App\Models\Form $form): array
+    {
+        $sessions = $form->sessions;
+        $questions = $form->questions;
+        
+        // Build questions summary
+        $questionsSummary = [];
+        foreach ($questions as $i => $q) {
+            $qNum = $i + 1;
+            $type = $q->type;
+            $content = strip_tags($q->content);
+            $questionsSummary[] = "Q{$qNum} ({$type}): {$content}";
+            
+            if ($q->options && $q->options->count() > 0) {
+                foreach ($q->options as $opt) {
+                    $optContent = strip_tags($opt->content);
+                    $isCorrect = $opt->is_correct ? ' ✓' : '';
+                    $questionsSummary[] = "  - {$optContent}{$isCorrect}";
+                }
+            }
+        }
+        
+        // Build responses summary
+        $responsesSummary = [];
+        $scores = [];
+        $times = [];
+        
+        foreach ($sessions as $session) {
+            if ($session->score !== null) {
+                $scores[] = $session->score;
+            }
+            if ($session->time_spent_seconds) {
+                $times[] = $session->time_spent_seconds;
+            }
+            
+            // Summarize answers per question
+            foreach ($session->responses ?? [] as $resp) {
+                $qId = $resp->question_id;
+                if (!isset($responsesSummary[$qId])) {
+                    $responsesSummary[$qId] = [];
+                }
+                
+                $answer = is_array($resp->answer) ? implode(', ', $resp->answer) : $resp->answer;
+                $answer = strip_tags((string)$answer);
+                
+                // Truncate long answers
+                if (strlen($answer) > 100) {
+                    $answer = substr($answer, 0, 100) . '...';
+                }
+                
+                if (!isset($responsesSummary[$qId][$answer])) {
+                    $responsesSummary[$qId][$answer] = 0;
+                }
+                $responsesSummary[$qId][$answer]++;
+            }
+        }
+        
+        // Format response distribution
+        $formattedResponses = [];
+        foreach ($questions as $i => $q) {
+            $qNum = $i + 1;
+            $content = strip_tags($q->content);
+            $formattedResponses[] = "\nQ{$qNum}: {$content}";
+            
+            $qResponses = $responsesSummary[$q->id] ?? [];
+            arsort($qResponses); // Sort by count
+            
+            foreach (array_slice($qResponses, 0, 5, true) as $answer => $count) {
+                $percentage = $sessions->count() > 0 ? round(($count / $sessions->count()) * 100) : 0;
+                $formattedResponses[] = "  • \"{$answer}\": {$count} respons ({$percentage}%)";
+            }
+            
+            if (count($qResponses) > 5) {
+                $remaining = count($qResponses) - 5;
+                $formattedResponses[] = "  • ... dan {$remaining} jawaban lainnya";
+            }
+        }
+        
+        $avgScore = count($scores) > 0 ? round(array_sum($scores) / count($scores), 1) : 0;
+        $avgTime = count($times) > 0 ? round(array_sum($times) / count($times)) : 0;
+        
+        return [
+            'total_responses' => $sessions->count(),
+            'questions_summary' => implode("\n", $questionsSummary),
+            'responses_summary' => implode("\n", $formattedResponses),
+            'average_score' => $avgScore,
+            'average_time' => $avgTime,
+            'completion_rate' => 100, // All loaded sessions are submitted
+        ];
+    }
+
     private function buildPrompt(
         string $topic,
         int $count,

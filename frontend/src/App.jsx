@@ -21,6 +21,8 @@ import PublicForm from './pages/PublicForm';
 // Store
 import { useAuthStore } from './stores/authStore';
 
+import { Toaster } from 'react-hot-toast';
+
 function App() {
   const { isAuthenticated, fetchUser } = useAuthStore();
 
@@ -33,6 +35,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
       <Routes>
         {/* Public Routes */}
         <Route element={<PublicLayout />}>

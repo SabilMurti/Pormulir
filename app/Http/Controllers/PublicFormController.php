@@ -173,7 +173,21 @@ class PublicFormController extends Controller
 
         // Check login requirement (General)
         if (($general['require_login'] ?? false) && !$user) {
-            return response()->json(['error' => 'Authentication required'], 401);
+            return response()->json(['error' => 'Authentication required', 'code' => 'LOGIN_REQUIRED'], 401);
+        }
+
+        // Check max responses limit
+        if ($form->max_responses) {
+            $submittedCount = FormSession::where('form_id', $form->id)
+                ->where('status', 'submitted')
+                ->count();
+            
+            if ($submittedCount >= $form->max_responses) {
+                return response()->json([
+                    'error' => 'This form has reached its maximum number of responses',
+                    'code' => 'MAX_RESPONSES_REACHED'
+                ], 403);
+            }
         }
 
         // Check one response limit
@@ -193,7 +207,10 @@ class PublicFormController extends Controller
             }
 
             if ($existingQuery->exists()) {
-                return response()->json(['error' => 'You have already submitted this form'], 403);
+                return response()->json([
+                    'error' => 'You have already submitted this form',
+                    'code' => 'ALREADY_SUBMITTED'
+                ], 403);
             }
         }
 
@@ -347,7 +364,21 @@ class PublicFormController extends Controller
 
         // Check login requirement
         if (($general['require_login'] ?? false) && !$user) {
-            return response()->json(['error' => 'Authentication required'], 401);
+            return response()->json(['error' => 'Authentication required', 'code' => 'LOGIN_REQUIRED'], 401);
+        }
+
+        // Check max responses limit
+        if ($form->max_responses) {
+            $submittedCount = FormSession::where('form_id', $form->id)
+                ->where('status', 'submitted')
+                ->count();
+            
+            if ($submittedCount >= $form->max_responses) {
+                return response()->json([
+                    'error' => 'This form has reached its maximum number of responses',
+                    'code' => 'MAX_RESPONSES_REACHED'
+                ], 403);
+            }
         }
 
         // Check one response limit
@@ -367,7 +398,10 @@ class PublicFormController extends Controller
             }
 
             if ($existingQuery->exists()) {
-                return response()->json(['error' => 'You have already submitted this form'], 403);
+                return response()->json([
+                    'error' => 'You have already submitted this form',
+                    'code' => 'ALREADY_SUBMITTED'
+                ], 403);
             }
         }
 
@@ -566,59 +600,61 @@ class PublicFormController extends Controller
     {
         $correct = $question->correct_answer;
         
+        // Helper to check if string is UUID
+        $isUuid = fn($str) => is_string($str) && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $str);
+
         // Handle multiple choice questions
         if ($question->type === 'multiple_choice') {
-            // First, check if any option is marked as correct (is_correct flag)
+            // Get the correct option object
             $correctOption = $question->options->first(fn($o) => $o->is_correct);
+            
+            // If we have a correct option configured
             if ($correctOption) {
-                // User sends content, compare with correct option's content
+                // CASE 1: Answer is UUID (New System)
+                if ($isUuid($answer)) {
+                    // Direct ID comparison
+                    if ($answer === $correctOption->id) return true;
+                }
+                
+                // CASE 2: Answer is Content (Legacy/Fallback)
+                // Normalize both and compare
                 return $this->normalizeContent($answer) === $this->normalizeContent($correctOption->content);
             }
             
-            // If correct_answer is an option ID (UUID format), find the option
-            if ($correct && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $correct)) {
-                $correctOption = $question->options->first(fn($o) => $o->id === $correct);
-                if ($correctOption) {
-                    return $this->normalizeContent($answer) === $this->normalizeContent($correctOption->content);
-                }
+            // Fallback for old questions where correct_answer might be stored as string in 'correct_answer' column
+            // (Though new system uses is_correct flag on options table)
+            if ($question->correct_answer) {
+                 return $this->normalizeContent($answer) === $this->normalizeContent($question->correct_answer);
             }
             
-            // Direct content comparison
-            return $this->normalizeContent($answer) === $this->normalizeContent($correct);
+            return false;
         }
 
         // Handle checkboxes questions
         if ($question->type === 'checkboxes') {
-            // Get all correct options by is_correct flag
-            $correctOptions = $question->options->filter(fn($o) => $o->is_correct);
-            if ($correctOptions->count() > 0) {
-                $correctContents = $correctOptions->pluck('content')->map(fn($c) => $this->normalizeContent($c))->toArray();
-                $answerContents = is_array($answer) 
-                    ? array_map(fn($a) => $this->normalizeContent($a), $answer)
-                    : [$this->normalizeContent($answer)];
-                sort($correctContents);
-                sort($answerContents);
-                return $correctContents === $answerContents;
+            // Get all correct option IDs
+            $correctOptionIds = $question->options->where('is_correct', true)->pluck('id')->toArray();
+            $correctContents = $question->options->where('is_correct', true)->pluck('content')
+                ->map(fn($c) => $this->normalizeContent($c))->toArray();
+            
+            $answers = is_array($answer) ? $answer : [$answer];
+            
+            // Check if answers are UUIDs (New System)
+            $allUuids = !empty($answers) && count(array_filter($answers, $isUuid)) === count($answers);
+            
+            if ($allUuids && count($correctOptionIds) > 0) {
+                // Compare IDs
+                sort($correctOptionIds);
+                sort($answers);
+                return $correctOptionIds === $answers;
             }
             
-            // Fallback to correct_answer field (array of IDs or contents)
-            $correctIds = is_array($correct) ? $correct : [$correct];
-            $answerIds = is_array($answer) ? $answer : [$answer];
-            
-            // Try to resolve IDs to content if they look like UUIDs
-            $correctContents = array_map(function($id) use ($question) {
-                if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $id)) {
-                    $opt = $question->options->first(fn($o) => $o->id === $id);
-                    return $opt ? $this->normalizeContent($opt->content) : $this->normalizeContent($id);
-                }
-                return $this->normalizeContent($id);
-            }, $correctIds);
-            
-            $answerContents = array_map(fn($a) => $this->normalizeContent($a), $answerIds);
+            // Fallback: Compare Contents (Legacy)
+            $normalizedAnswers = array_map(fn($a) => $this->normalizeContent($a), $answers);
             
             sort($correctContents);
-            sort($answerContents);
-            return $correctContents === $answerContents;
+            sort($normalizedAnswers);
+            return $correctContents === $normalizedAnswers;
         }
 
         // Text comparison (case insensitive, trimmed, HTML stripped)

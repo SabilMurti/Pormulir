@@ -55,7 +55,8 @@ class PublicFormTest extends TestCase
 
         $response = $this->getJson("/api/f/{$this->form->slug}");
 
-        $response->assertNotFound();
+        $response->assertForbidden()
+            ->assertJsonFragment(['code' => 'DRAFT']);
     }
 
     public function test_can_start_session(): void
@@ -191,6 +192,104 @@ class PublicFormTest extends TestCase
         $this->assertDatabaseHas('form_sessions', [
             'id' => $sessionId,
             'status' => 'violated',
+        ]);
+    }
+
+    public function test_max_responses_limit_enforced(): void
+    {
+        // Set max responses to 2
+        $this->form->update(['max_responses' => 2]);
+
+        // Submit 2 responses successfully
+        for ($i = 0; $i < 2; $i++) {
+            $response = $this->postJson("/api/f/{$this->form->slug}/submit-direct", [
+                'answers' => [
+                    ['question_id' => $this->form->questions->first()->id, 'value' => "Answer $i"],
+                ],
+                'respondent_email' => "user{$i}@example.com",
+            ]);
+            $response->assertOk();
+        }
+
+        // Third submission should fail
+        $response = $this->postJson("/api/f/{$this->form->slug}/submit-direct", [
+            'answers' => [
+                ['question_id' => $this->form->questions->first()->id, 'value' => 'Answer 3'],
+            ],
+            'respondent_email' => 'user3@example.com',
+        ]);
+
+        $response->assertForbidden()
+            ->assertJsonFragment(['code' => 'MAX_RESPONSES_REACHED']);
+    }
+
+    public function test_one_response_per_user_enforced(): void
+    {
+        // Enable limit one response
+        $settings = $this->form->settings;
+        $settings['general']['limit_one_response'] = true;
+        $this->form->update(['settings' => $settings]);
+
+        // First submission
+        $response = $this->postJson("/api/f/{$this->form->slug}/submit-direct", [
+            'answers' => [
+                ['question_id' => $this->form->questions->first()->id, 'value' => 'First Answer'],
+            ],
+            'respondent_email' => 'same@example.com',
+        ]);
+        $response->assertOk();
+
+        // Second submission with same email should fail (based on IP since no login)
+        $response = $this->postJson("/api/f/{$this->form->slug}/submit-direct", [
+            'answers' => [
+                ['question_id' => $this->form->questions->first()->id, 'value' => 'Second Answer'],
+            ],
+            'respondent_email' => 'same@example.com',
+        ]);
+
+        $response->assertForbidden()
+            ->assertJsonFragment(['code' => 'ALREADY_SUBMITTED']);
+    }
+
+    public function test_require_login_enforced(): void
+    {
+        // Enable require login
+        $settings = $this->form->settings;
+        $settings['general']['require_login'] = true;
+        $this->form->update(['settings' => $settings]);
+
+        // Try to start session without auth
+        $response = $this->postJson("/api/f/{$this->form->slug}/start");
+
+        $response->assertUnauthorized()
+            ->assertJsonFragment(['code' => 'LOGIN_REQUIRED']);
+    }
+
+    public function test_authenticated_user_can_submit_with_require_login(): void
+    {
+        // Enable require login
+        $settings = $this->form->settings;
+        $settings['general']['require_login'] = true;
+        $this->form->update(['settings' => $settings]);
+
+        // Create and authenticate a user
+        $user = User::factory()->create();
+
+        // Submit with authentication
+        $response = $this->actingAs($user, 'sanctum')
+            ->postJson("/api/f/{$this->form->slug}/submit-direct", [
+                'answers' => [
+                    ['question_id' => $this->form->questions->first()->id, 'value' => 'Authenticated Answer'],
+                ],
+            ]);
+
+        $response->assertOk();
+
+        // Verify user info was captured
+        $this->assertDatabaseHas('form_sessions', [
+            'form_id' => $this->form->id,
+            'user_id' => $user->id,
+            'respondent_email' => $user->email,
         ]);
     }
 }
