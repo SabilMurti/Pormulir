@@ -18,6 +18,12 @@ import { useAuthStore } from '../stores/authStore';
 import workspaceService from '../services/workspace';
 import formService from '../services/form';
 
+// Helper to strip HTML tags for display
+const stripHtml = (html) => {
+  if (!html) return '';
+  return String(html).replace(/<[^>]+>/g, '').trim();
+};
+
 export function Dashboard() {
   const { user } = useAuthStore();
   const [stats, setStats] = useState({
@@ -221,7 +227,7 @@ export function Dashboard() {
                       <FileText className="w-5 h-5 text-primary-600" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-slate-900">{form.title}</h3>
+                      <h3 className="font-medium text-slate-900">{stripHtml(form.title)}</h3>
                       <div className="flex items-center gap-3 text-sm text-slate-500">
                         <span className="flex items-center gap-1">
                           <Eye className="w-3.5 h-3.5" />

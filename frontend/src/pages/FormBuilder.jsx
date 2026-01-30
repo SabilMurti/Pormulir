@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Save, 
@@ -14,7 +14,8 @@ import {
   ClipboardList,
   Layers,
   Minus,
-  FileText
+  FileText,
+  Send
 } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -26,11 +27,13 @@ import { Skeleton } from '../components/ui/Loading';
 import QuestionCard from '../components/forms/QuestionCard';
 import QuestionTypePicker from '../components/forms/QuestionTypePicker';
 import FormSettingsPanel from '../components/forms/FormSettingsPanel';
+import PublishModal from '../components/forms/PublishModal';
 import { Dropdown, DropdownItem } from '../components/ui/Dropdown';
 import formService from '../services/form';
 import questionService from '../services/question';
 
 import workspaceService from '../services/workspace';
+import { RichTextEditor } from '../components/ui/RichTextEditor';
 
 // Wrapper for Drag and Drop
 function SortableQuestionCard({ question, ...props }) {
@@ -78,7 +81,12 @@ export function FormBuilder() {
   const [saving, setSaving] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [selectedQuestionId, setSelectedQuestionId] = useState(null);
+  
+  // Debounce ref for API calls
+  const updateTimeoutRef = useRef({});
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -86,6 +94,13 @@ export function FormBuilder() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+  
+  // Cleanup debounce timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(updateTimeoutRef.current).forEach(clearTimeout);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isNew) {
@@ -99,11 +114,14 @@ export function FormBuilder() {
       const response = await formService.getById(id);
       const formData = response.data;
       setForm({
+        id: formData.id,
         title: formData.title,
         description: formData.description || '',
         status: formData.status,
         settings: formData.settings || {},
         slug: formData.slug,
+        access_type: formData.access_type || 'public',
+        allowed_emails: formData.allowed_emails || [],
       });
       setQuestions(formData.questions || []);
     } catch (error) {
@@ -262,21 +280,31 @@ export function FormBuilder() {
     }
   };
 
-  const handleUpdateQuestion = async (questionId, updates) => {
-    setQuestions(questions.map(q => 
+  const handleUpdateQuestion = useCallback((questionId, updates) => {
+    // Update local state immediately for responsive UI
+    setQuestions(prev => prev.map(q => 
       q.id === questionId ? { ...q, ...updates } : q
     ));
     setHasChanges(true);
 
-    // If not a temp question, update via API
+    // Debounced API call to prevent excessive requests during rapid typing
     if (!isNew && id && !String(questionId).startsWith('temp-')) {
-      try {
-        await questionService.update(questionId, updates);
-      } catch (error) {
-        console.error('Failed to update question:', error);
+      // Clear previous timeout for this question
+      if (updateTimeoutRef.current[questionId]) {
+        clearTimeout(updateTimeoutRef.current[questionId]);
       }
+      
+      // Set new debounced call
+      updateTimeoutRef.current[questionId] = setTimeout(async () => {
+        try {
+          await questionService.update(questionId, updates);
+        } catch (error) {
+          console.error('Failed to update question:', error);
+        }
+        delete updateTimeoutRef.current[questionId];
+      }, 500); // 500ms debounce
     }
-  };
+  }, [isNew, id]);
 
   const handleDeleteQuestion = async (questionId) => {
     setQuestions(questions.filter(q => q.id !== questionId));
@@ -458,40 +486,56 @@ export function FormBuilder() {
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save
               </Button>
-              {!isNew && form.status === 'draft' && (
-                <Button 
-                  size="sm"
-                  onClick={handlePublish}
-                  disabled={saving}
-                  className="gap-1"
-                >
-                  <Globe className="w-4 h-4" />
-                  Publish
-                </Button>
-              )}
+              <Button 
+                variant="primary" 
+                size="sm"
+                onClick={async () => {
+                  // For new forms or forms without id, save first
+                  if (isNew || !form.id) {
+                    await handleSave();
+                    // After save, the page will navigate to the new form
+                    // User will need to click publish again
+                    alert('Form disimpan! Silakan klik Publish lagi.');
+                    return;
+                  }
+                  setShowPublishModal(true);
+                }}
+                disabled={saving || (isNew && questions.length === 0)}
+                className="gap-2 ml-2 bg-primary-600 hover:bg-primary-700 text-white shadow-sm border-0"
+              >
+                <Send className="w-4 h-4" />
+                Publish
+              </Button>
             </div>
           </div>
         </div>
       </div>
 
+      <PublishModal 
+        form={form}
+        isOpen={showPublishModal}
+        onClose={() => setShowPublishModal(false)}
+        onUpdate={setForm}
+      />
+
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Form Header */}
         <Card className="p-6 mb-6">
-          <input
-            type="text"
+          <RichTextEditor
             value={form.title}
-            onChange={(e) => handleFormChange('title', e.target.value)}
+            onChange={(html) => handleFormChange('title', html)}
             placeholder="Form Title"
-            className="text-2xl font-bold text-slate-900 w-full border-none outline-none bg-transparent placeholder:text-slate-300"
+            className="text-2xl font-bold text-slate-900"
           />
-          <textarea
-            value={form.description}
-            onChange={(e) => handleFormChange('description', e.target.value)}
-            placeholder="Add a description..."
-            className="mt-2 text-slate-600 w-full border-none outline-none bg-transparent resize-none placeholder:text-slate-400"
-            rows={2}
-          />
+          <div className="mt-4">
+            <RichTextEditor
+              value={form.description}
+              onChange={(html) => handleFormChange('description', html)}
+              placeholder="Add a description..."
+              className="text-slate-600"
+            />
+          </div>
         </Card>
 
         {/* Questions */}
@@ -506,8 +550,8 @@ export function FormBuilder() {
                 key={question.id}
                 question={question}
                 index={index}
-                isSelected={false} // Add selection state logic if needed
-                onSelect={() => {}} // Handle selection
+                isSelected={selectedQuestionId === question.id}
+                onSelect={() => setSelectedQuestionId(question.id)}
                 onUpdate={(updates) => handleUpdateQuestion(question.id, updates)}
                 onDelete={() => handleDeleteQuestion(question.id)}
                 onDuplicate={() => handleAddQuestion(question.type)}

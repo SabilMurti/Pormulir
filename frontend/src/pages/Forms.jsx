@@ -25,6 +25,12 @@ import formService from '../services/form';
 import workspaceService from '../services/workspace';
 import { copyToClipboard } from '../utils/helpers';
 
+// Helper to strip HTML tags for display
+const stripHtml = (html) => {
+  if (!html) return '';
+  return String(html).replace(/<[^>]+>/g, '').trim();
+};
+
 export function Forms() {
   const navigate = useNavigate();
   const [forms, setForms] = useState([]);
@@ -78,7 +84,7 @@ export function Forms() {
   };
 
   const handleDelete = async (form) => {
-    if (!confirm(`Are you sure you want to delete "${form.title}"?`)) return;
+    if (!confirm(`Are you sure you want to delete "${stripHtml(form.title)}"?`)) return;
     
     try {
       await formService.delete(form.id);
@@ -106,7 +112,7 @@ export function Forms() {
   // Filter & Sort forms
   const filteredForms = forms
     .filter(form => {
-      const matchesSearch = form.title.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = stripHtml(form.title).toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === 'all' || form.status === statusFilter;
       const matchesWorkspace = workspaceFilter === 'all' || form.workspace_id === workspaceFilter;
       return matchesSearch && matchesStatus && matchesWorkspace;
@@ -116,6 +122,7 @@ export function Forms() {
       if (sortOrder === 'oldest') return new Date(a.created_at) - new Date(b.created_at);
       if (sortOrder === 'a-z') return a.title.localeCompare(b.title);
       if (sortOrder === 'z-a') return b.title.localeCompare(a.title);
+      if (sortOrder === 'most-responses') return (b.response_count || 0) - (a.response_count || 0);
       return 0;
     });
 
@@ -140,66 +147,96 @@ export function Forms() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col lg:flex-row gap-4 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search forms..."
-            className="input pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6 space-y-4">
+        {/* Row 1: Search + Primary Filters */}
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search forms..."
+              className="input pl-10 w-full"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          {/* Workspace Filter */}
           {workspaces.length > 0 && (
-            <select
-              className="input w-auto max-w-[200px]"
-              value={workspaceFilter}
-              onChange={(e) => setWorkspaceFilter(e.target.value)}
-            >
-              <option value="all">All Workspaces</option>
-              {workspaces.map(ws => (
-                <option key={ws.id} value={ws.id}>{ws.name}</option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-slate-500 whitespace-nowrap hidden sm:block">Workspace:</label>
+              <select
+                className="input w-full lg:w-auto min-w-[160px]"
+                value={workspaceFilter}
+                onChange={(e) => setWorkspaceFilter(e.target.value)}
+              >
+                <option value="all">All Workspaces</option>
+                {workspaces.map(ws => (
+                  <option key={ws.id} value={ws.id}>{ws.name}</option>
+                ))}
+              </select>
+            </div>
           )}
 
-          <select
-            className="input w-auto"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="all">All Status</option>
-            <option value="draft">Draft</option>
-            <option value="published">Published</option>
-            <option value="closed">Closed</option>
-          </select>
-
-          <select
-            className="input w-auto"
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-          >
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="a-z">Name (A-Z)</option>
-            <option value="z-a">Name (Z-A)</option>
-          </select>
-
-          <div className="flex border border-slate-200 rounded-lg overflow-hidden">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-2.5 ${viewMode === 'grid' ? 'bg-primary-100 text-primary-600' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
+          {/* Status Filter */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-slate-500 whitespace-nowrap hidden sm:block">Status:</label>
+            <select
+              className="input w-full lg:w-auto min-w-[130px]"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <Grid3X3 className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-2.5 ${viewMode === 'list' ? 'bg-primary-100 text-primary-600' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
-            >
-              <List className="w-5 h-5" />
-            </button>
+              <option value="all">All Status</option>
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Row 2: Sort + View Mode + Stats */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-3 border-t border-slate-100">
+          {/* Left: Results count */}
+          <div className="text-sm text-slate-500">
+            <span className="font-medium text-slate-700">{filteredForms.length}</span> form{filteredForms.length !== 1 ? 's' : ''} found
+          </div>
+
+          {/* Right: Sort + View */}
+          <div className="flex items-center gap-3">
+            {/* Sort By */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-slate-500 whitespace-nowrap">Sort by:</label>
+              <select
+                className="input w-auto min-w-[140px] py-2"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="most-responses">Most Responses</option>
+                <option value="a-z">Name (A-Z)</option>
+                <option value="z-a">Name (Z-A)</option>
+              </select>
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="flex border border-slate-200 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-primary-100 text-primary-600' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
+                title="Grid view"
+              >
+                <Grid3X3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-primary-100 text-primary-600' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
+                title="List view"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -226,11 +263,11 @@ export function Forms() {
                 <div className="flex-1 min-w-0">
                   <Link to={`/forms/${form.id}/edit`}>
                     <h3 className="font-semibold text-slate-900 truncate hover:text-primary-600 transition-colors">
-                      {form.title}
+                      {stripHtml(form.title)}
                     </h3>
                   </Link>
                   <p className="text-sm text-slate-500 line-clamp-2 mt-1">
-                    {form.description || 'No description'}
+                    {stripHtml(form.description) || 'No description'}
                   </p>
                 </div>
                 <Dropdown
@@ -350,7 +387,7 @@ export function Forms() {
             <Button variant="secondary" onClick={() => setShowCreateModal(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreate} loading={saving}>
+            <Button onClick={handleCreate} isLoading={saving}>
               Create Form
             </Button>
           </div>

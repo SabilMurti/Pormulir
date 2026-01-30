@@ -23,14 +23,32 @@ class PublicFormController extends Controller
         // Check if preview mode (for draft forms)
         $isPreview = $request->query('preview') === 'true';
         
-        $query = Form::where('slug', $slug)->with(['questions.options']);
+        // First, check if form exists at all
+        $form = Form::where('slug', $slug)->with(['questions.options'])->first();
         
-        // Only require published status if not in preview mode
-        if (!$isPreview) {
-            $query->where('status', 'published');
+        if (!$form) {
+            return response()->json([
+                'error' => 'Form not found',
+                'code' => 'NOT_FOUND'
+            ], 404);
         }
         
-        $form = $query->firstOrFail();
+        // Check form status (unless preview mode)
+        if (!$isPreview) {
+            if ($form->status === 'draft') {
+                return response()->json([
+                    'error' => 'This form is not yet published',
+                    'code' => 'DRAFT'
+                ], 403);
+            }
+            
+            if ($form->status === 'closed') {
+                return response()->json([
+                    'error' => 'This form is closed and no longer accepting responses',
+                    'code' => 'CLOSED'
+                ], 403);
+            }
+        }
 
         // Check access restrictions
         $settings = $form->settings ?? [];
@@ -50,6 +68,22 @@ class PublicFormController extends Controller
                 'error' => 'Form has ended',
                 'ended_at' => $access['end_at'],
             ], 403);
+        }
+
+        // Access Control Logic (Restricted Mode)
+        if ($form->access_type === 'restricted') {
+            $user = auth('sanctum')->user();
+            if (!$user) {
+                // If checking preview/info, we might want to let them see basic info? 
+                // But generally restricted means restricted.
+                return response()->json(['error' => 'Authentication required', 'code' => 'LOGIN_REQUIRED'], 401);
+            }
+            
+            $allowedEmails = $form->allowed_emails ?? [];
+            // Creator always has access
+            if ($user->id !== $form->created_by && !in_array($user->email, $allowedEmails)) {
+                 return response()->json(['error' => 'Access denied', 'code' => 'RESTRICTED_ACCESS'], 403);
+            }
         }
 
         // Prepare questions
@@ -126,7 +160,18 @@ class PublicFormController extends Controller
         // Try to authenticate user from Bearer token manually
         $user = auth('sanctum')->user();
 
-        // Check login requirement
+        // Access Control Logic (Restricted Mode) - Check 1
+        if ($form->access_type === 'restricted') {
+            if (!$user) {
+                return response()->json(['error' => 'Authentication required', 'code' => 'LOGIN_REQUIRED'], 401);
+            }
+            $allowedEmails = $form->allowed_emails ?? [];
+            if ($user->id !== $form->created_by && !in_array($user->email, $allowedEmails)) {
+                 return response()->json(['error' => 'Access denied', 'code' => 'RESTRICTED_ACCESS'], 403);
+            }
+        }
+
+        // Check login requirement (General)
         if (($general['require_login'] ?? false) && !$user) {
             return response()->json(['error' => 'Authentication required'], 401);
         }
@@ -207,17 +252,21 @@ class PublicFormController extends Controller
             $earnedPoints = 0;
 
             foreach ($request->responses as $responseData) {
-                $question = $form->questions()->find($responseData['question_id']);
+                // Eager load options for accurate answer checking
+                $question = $form->questions()->with('options')->find($responseData['question_id']);
                 if (!$question) continue;
 
                 $isCorrect = null;
                 $pointsEarned = null;
 
-                // Auto-grade if correct answer exists
-                if ($question->correct_answer !== null) {
+                // Auto-grade if correct answer exists (either in correct_answer field OR options with is_correct flag)
+                $hasCorrectAnswer = ($question->correct_answer !== null && !empty($question->correct_answer))
+                    || $question->options->contains(fn($o) => $o->is_correct);
+                    
+                if ($hasCorrectAnswer) {
                     $isCorrect = $this->checkAnswer($question, $responseData['answer']);
-                    $pointsEarned = $isCorrect ? $question->points : 0;
-                    $totalPoints += $question->points;
+                    $pointsEarned = $isCorrect ? ($question->points ?? 10) : 0;
+                    $totalPoints += ($question->points ?? 10);
                     $earnedPoints += $pointsEarned;
                 }
 
@@ -285,6 +334,17 @@ class PublicFormController extends Controller
         // Try to authenticate user from Bearer token manually
         $user = auth('sanctum')->user();
 
+        // Access Control Logic (Restricted Mode)
+        if ($form->access_type === 'restricted') {
+            if (!$user) {
+                return response()->json(['error' => 'Authentication required', 'code' => 'LOGIN_REQUIRED'], 401);
+            }
+            $allowedEmails = $form->allowed_emails ?? [];
+            if ($user->id !== $form->created_by && !in_array($user->email, $allowedEmails)) {
+                 return response()->json(['error' => 'Access denied', 'code' => 'RESTRICTED_ACCESS'], 403);
+            }
+        }
+
         // Check login requirement
         if (($general['require_login'] ?? false) && !$user) {
             return response()->json(['error' => 'Authentication required'], 401);
@@ -332,14 +392,18 @@ class PublicFormController extends Controller
 
             // Save responses
             foreach ($request->answers as $answerData) {
-                $question = $form->questions()->find($answerData['question_id']);
+                // Eager load options for accurate answer checking
+                $question = $form->questions()->with('options')->find($answerData['question_id']);
                 if (!$question) continue;
 
                 $isCorrect = null;
                 $pointsEarned = null;
 
-                // Auto-grade if correct answer exists
-                if ($question->correct_answer !== null && !empty($question->correct_answer)) {
+                // Auto-grade if correct answer exists (either in correct_answer field OR options with is_correct flag)
+                $hasCorrectAnswer = ($question->correct_answer !== null && !empty($question->correct_answer))
+                    || $question->options->contains(fn($o) => $o->is_correct);
+                    
+                if ($hasCorrectAnswer) {
                     $isCorrect = $this->checkAnswer($question, $answerData['value']);
                     $pointsEarned = $isCorrect ? ($question->points ?? 10) : 0;
                     $totalPoints += ($question->points ?? 10);
@@ -501,24 +565,78 @@ class PublicFormController extends Controller
     private function checkAnswer($question, $answer): bool
     {
         $correct = $question->correct_answer;
-
+        
+        // Handle multiple choice questions
         if ($question->type === 'multiple_choice') {
-            return $answer === $correct;
+            // First, check if any option is marked as correct (is_correct flag)
+            $correctOption = $question->options->first(fn($o) => $o->is_correct);
+            if ($correctOption) {
+                // User sends content, compare with correct option's content
+                return $this->normalizeContent($answer) === $this->normalizeContent($correctOption->content);
+            }
+            
+            // If correct_answer is an option ID (UUID format), find the option
+            if ($correct && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $correct)) {
+                $correctOption = $question->options->first(fn($o) => $o->id === $correct);
+                if ($correctOption) {
+                    return $this->normalizeContent($answer) === $this->normalizeContent($correctOption->content);
+                }
+            }
+            
+            // Direct content comparison
+            return $this->normalizeContent($answer) === $this->normalizeContent($correct);
         }
 
+        // Handle checkboxes questions
         if ($question->type === 'checkboxes') {
+            // Get all correct options by is_correct flag
+            $correctOptions = $question->options->filter(fn($o) => $o->is_correct);
+            if ($correctOptions->count() > 0) {
+                $correctContents = $correctOptions->pluck('content')->map(fn($c) => $this->normalizeContent($c))->toArray();
+                $answerContents = is_array($answer) 
+                    ? array_map(fn($a) => $this->normalizeContent($a), $answer)
+                    : [$this->normalizeContent($answer)];
+                sort($correctContents);
+                sort($answerContents);
+                return $correctContents === $answerContents;
+            }
+            
+            // Fallback to correct_answer field (array of IDs or contents)
             $correctIds = is_array($correct) ? $correct : [$correct];
             $answerIds = is_array($answer) ? $answer : [$answer];
-            sort($correctIds);
-            sort($answerIds);
-            return $correctIds === $answerIds;
+            
+            // Try to resolve IDs to content if they look like UUIDs
+            $correctContents = array_map(function($id) use ($question) {
+                if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $id)) {
+                    $opt = $question->options->first(fn($o) => $o->id === $id);
+                    return $opt ? $this->normalizeContent($opt->content) : $this->normalizeContent($id);
+                }
+                return $this->normalizeContent($id);
+            }, $correctIds);
+            
+            $answerContents = array_map(fn($a) => $this->normalizeContent($a), $answerIds);
+            
+            sort($correctContents);
+            sort($answerContents);
+            return $correctContents === $answerContents;
         }
 
-        // Text comparison (case insensitive, trimmed)
+        // Text comparison (case insensitive, trimmed, HTML stripped)
         if (is_string($answer) && is_string($correct)) {
-            return strtolower(trim($answer)) === strtolower(trim($correct));
+            return $this->normalizeContent($answer) === $this->normalizeContent($correct);
         }
 
         return $answer == $correct;
+    }
+    
+    /**
+     * Normalize content for comparison by stripping HTML tags, trimming, and lowercasing
+     */
+    private function normalizeContent($content): string
+    {
+        if (!is_string($content)) {
+            return '';
+        }
+        return strtolower(trim(strip_tags($content)));
     }
 }

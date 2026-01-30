@@ -22,11 +22,14 @@ class Form extends Model
         'status',
         'settings',
         'theme',
+        'access_type',
+        'allowed_emails',
     ];
 
     protected $casts = [
         'settings' => 'array',
         'theme' => 'array',
+        'allowed_emails' => 'array',
     ];
 
     public function workspace(): BelongsTo

@@ -225,7 +225,7 @@ export function Workspaces() {
             <Button variant="secondary" onClick={() => setShowCreateModal(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreate} loading={saving}>
+            <Button onClick={handleCreate} isLoading={saving}>
               Create Workspace
             </Button>
           </div>
@@ -255,7 +255,7 @@ export function Workspaces() {
             <Button variant="secondary" onClick={() => setShowEditModal(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdate} loading={saving}>
+            <Button onClick={handleUpdate} isLoading={saving}>
               Save Changes
             </Button>
           </div>

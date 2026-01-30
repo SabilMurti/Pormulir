@@ -46,4 +46,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(AiUsageLog::class);
     }
+
+    public function media(): HasMany
+    {
+        return $this->hasMany(Media::class);
+    }
 }
