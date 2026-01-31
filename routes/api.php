@@ -7,6 +7,7 @@ use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PublicFormController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\ResponseController;
+use App\Http\Controllers\SheetsController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkspaceController;
 use Illuminate\Support\Facades\Route;
@@ -58,12 +59,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('forms/{form}/responses/{session}', [ResponseController::class, 'destroy']);
     Route::get('forms/{form}/summary', [ResponseController::class, 'summary']);
 
+    // Google Sheets Integration
+    Route::prefix('sheets')->group(function () {
+        Route::get('check-auth', [SheetsController::class, 'checkAuth']);
+        Route::get('forms/{form}/status', [SheetsController::class, 'status']);
+        Route::post('forms/{form}/create', [SheetsController::class, 'create']);
+        Route::post('forms/{form}/sync', [SheetsController::class, 'sync']);
+        Route::delete('forms/{form}/unlink', [SheetsController::class, 'unlink']);
+    });
+
     // AI Generation
     Route::prefix('ai')->group(function () {
         Route::post('generate', [AIController::class, 'generate']);
         Route::post('generate-from-file', [AIController::class, 'generateFromFile']);
         Route::post('improve', [AIController::class, 'improve']);
         Route::post('forms/{form}/add-questions', [AIController::class, 'addToForm']);
+        Route::post('forms/{form}/analyze-responses', [AIController::class, 'analyzeResponses']);
         Route::get('usage', [AIController::class, 'usage']);
     });
 

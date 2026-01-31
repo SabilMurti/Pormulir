@@ -13,15 +13,23 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class ResponsesExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithStyles, WithTitle
 {
+    private $questions;
+
     public function __construct(
         private Form $form
-    ) {}
+    ) {
+        // Eager load questions with options to prevent N+1 queries during export
+        $this->questions = $this->form->questions()
+            ->with('options')
+            ->orderBy('sort_order')
+            ->get();
+    }
 
     public function collection()
     {
         return $this->form->sessions()
             ->where('status', 'submitted')
-            ->with('responses')
+            ->with(['responses']) // We don't need to load questions here since we process them separately
             ->orderBy('submitted_at', 'desc')
             ->get();
     }
@@ -33,12 +41,13 @@ class ResponsesExport implements FromCollection, WithHeadings, WithMapping, Shou
             'Respondent Email',
             'Submitted At',
             'Time Spent',
-            'Score',
+            'Score (%)', // Clarified unit
             'Status',
         ];
 
-        foreach ($this->form->questions()->orderBy('sort_order')->get() as $question) {
-            $headers[] = $question->content;
+        foreach ($this->questions as $question) {
+            // Clean HTML tags for Excel header
+            $headers[] = $this->cleanContent($question->content);
         }
 
         return $headers;
@@ -51,32 +60,47 @@ class ResponsesExport implements FromCollection, WithHeadings, WithMapping, Shou
             $session->respondent_email ?? '-',
             $session->submitted_at?->format('Y-m-d H:i:s'),
             $this->formatTime($session->time_spent_seconds),
-            $session->score !== null ? round($session->score, 2) . '%' : '-',
+            $session->score !== null ? round($session->score, 2) : '-', // Removed % symbol to keep it numeric
             ucfirst($session->status),
         ];
 
+        // Map responses for O(1) access
         $responseMap = $session->responses->keyBy('question_id');
         
-        foreach ($this->form->questions()->orderBy('sort_order')->get() as $question) {
+        foreach ($this->questions as $question) {
             $response = $responseMap[$question->id] ?? null;
             $answer = $response?->answer;
             
-            if (is_array($answer)) {
-                // For checkbox/multiple answers, get the option contents
+            $formattedAnswer = '-';
+
+            if ($answer) {
                 if ($question->hasOptions()) {
-                    $optionIds = $answer;
-                    $options = $question->options()->whereIn('id', $optionIds)->pluck('content');
-                    $answer = $options->implode(', ');
+                    // Try to resolve option content from ID(s)
+                    // The answer could be an ID (string/int) or array of IDs
+                    $answerIds = is_array($answer) ? $answer : [$answer];
+                    
+                    $optionContents = $question->options
+                        ->whereIn('id', $answerIds)
+                        ->pluck('content')
+                        ->toArray();
+
+                    // If we found matching options, use their content. 
+                    // Otherwise unnecessary fallback to original answer (if it was text legacy)
+                    if (!empty($optionContents)) {
+                        $formattedAnswer = implode(', ', array_map([$this, 'cleanContent'], $optionContents));
+                    } else {
+                        // Fallback: If no ID match found, maybe it's legacy text content
+                        $formattedAnswer = is_array($answer) 
+                            ? implode(', ', array_map([$this, 'cleanContent'], $answer))
+                            : $this->cleanContent($answer);
+                    }
                 } else {
-                    $answer = implode(', ', $answer);
+                    // Free text answer
+                    $formattedAnswer = $this->cleanContent($answer);
                 }
-            } elseif ($question->hasOptions() && $answer) {
-                // For single choice, get the option content
-                $option = $question->options()->find($answer);
-                $answer = $option?->content ?? $answer;
             }
             
-            $row[] = $answer ?? '-';
+            $row[] = $formattedAnswer;
         }
 
         return $row;
@@ -86,22 +110,19 @@ class ResponsesExport implements FromCollection, WithHeadings, WithMapping, Shou
     {
         return [
             1 => [
-                'font' => ['bold' => true],
+                'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
                 'fill' => [
                     'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
                     'startColor' => ['argb' => 'FF4F46E5'],
                 ],
-                'font' => [
-                    'bold' => true,
-                    'color' => ['argb' => 'FFFFFFFF'],
-                ],
+                'alignment' => ['vertical' => 'center'],
             ],
         ];
     }
 
     public function title(): string
     {
-        return 'Responses';
+        return substr($this->cleanContent($this->form->title), 0, 30); // Excel sheet name limit
     }
 
     private function formatTime(?int $seconds): string
@@ -112,5 +133,20 @@ class ResponsesExport implements FromCollection, WithHeadings, WithMapping, Shou
         $secs = $seconds % 60;
         
         return sprintf('%d:%02d', $minutes, $secs);
+    }
+
+    private function cleanContent(?string $content): string
+    {
+        if (!$content) return '';
+        
+        // Decode HTML entities (e.g. &nbsp;, &gt;)
+        $decoded = html_entity_decode($content);
+        
+        // Replace <br> and <p> with newlines for better cell formatting
+        $withNewlines = preg_replace('/<br\s*\/?>/i', "\n", $decoded);
+        $withNewlines = preg_replace('/<\/p>\s*<p>/i', "\n\n", $withNewlines);
+        
+        // Strip remaining tags
+        return trim(strip_tags($withNewlines));
     }
 }

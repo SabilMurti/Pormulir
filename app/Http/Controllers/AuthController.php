@@ -13,6 +13,13 @@ class AuthController extends Controller
     public function redirectToGoogle(): JsonResponse
     {
         $url = Socialite::driver('google')
+            ->scopes([
+                'https://www.googleapis.com/auth/userinfo.profile',
+                'https://www.googleapis.com/auth/userinfo.email',
+                'https://www.googleapis.com/auth/spreadsheets',
+                'https://www.googleapis.com/auth/drive.file'
+            ])
+            ->with(['access_type' => 'offline', 'prompt' => 'consent'])
             ->stateless()
             ->redirect()
             ->getTargetUrl();
@@ -31,6 +38,8 @@ class AuthController extends Controller
                     'name' => $googleUser->getName(),
                     'email' => $googleUser->getEmail(),
                     'avatar_url' => $googleUser->getAvatar(),
+                    'google_token' => $googleUser->token,
+                    'google_refresh_token' => $googleUser->refreshToken,
                 ]
             );
 

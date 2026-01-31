@@ -11,7 +11,7 @@ const tabs = [
   { id: 'notifications', label: 'Notifications', icon: Bell },
 ];
 
-export function FormSettingsPanel({ isOpen, onClose, settings, onUpdate }) {
+export function FormSettingsPanel({ isOpen, onClose, settings, onUpdate, maxResponses, onMaxResponsesChange }) {
   const [activeTab, setActiveTab] = useState('general');
 
   if (!isOpen) return null;
@@ -120,13 +120,57 @@ export function FormSettingsPanel({ isOpen, onClose, settings, onUpdate }) {
                     description="Respondents must verify identity with Google"
                     checked={settings?.general?.require_login}
                     onChange={() => {
-                        handleToggle('general', 'require_login');
-                        // If enabling login, auto-enable collect email (as verified)
-                        if (!settings?.general?.require_login) {
-                            handleChange('general', 'collect_email', true);
-                        }
+                        const newRequireLogin = !settings?.general?.require_login;
+                        onUpdate({
+                          ...settings,
+                          general: {
+                            ...settings?.general,
+                            require_login: newRequireLogin,
+                            // If enabling login, auto-enable collect email
+                            ...(newRequireLogin && { collect_email: true }),
+                          },
+                        });
                     }}
                   />
+                </div>
+              </div>
+
+              {/* Response Limits */}
+              <div className="pb-4 border-b border-slate-200">
+                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">Response Limits</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                      Max Total Responses
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100000}
+                      value={maxResponses || ''}
+                      onChange={(e) => onMaxResponsesChange?.(e.target.value ? parseInt(e.target.value) : null)}
+                      placeholder="Unlimited (leave empty)"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Form will automatically close when this limit is reached.
+                    </p>
+                  </div>
+                  
+                  {settings?.general?.limit_one_response && settings?.general?.require_login && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                      <p className="text-sm text-emerald-700">
+                        ✓ <strong>One response per user enabled.</strong> Users must log in with Google and can only submit once.
+                      </p>
+                    </div>
+                  )}
+                  
+                  {settings?.general?.limit_one_response && !settings?.general?.require_login && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="text-sm text-amber-700">
+                        ⚠️ <strong>Tip:</strong> Enable "Require Google Login" for more reliable duplicate prevention.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 

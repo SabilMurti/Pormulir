@@ -23,13 +23,85 @@ class ResponseController extends Controller
             $this->authorize('view', $form->workspace);
         }
 
+        // Optimized: Removing 'responses.question' eager load for list view
         $sessions = $form->sessions()
             ->where('status', 'submitted')
-            ->with(['user', 'responses.question'])
+            ->with(['user']) 
             ->orderBy('submitted_at', 'desc')
             ->paginate($request->per_page ?? 50);
 
         return FormSessionResource::collection($sessions);
+    }
+
+    // ... (rest of methods)
+
+    public function summary(Form $form): JsonResponse
+    {
+        // Handle forms with or without workspace
+        if ($form->workspace_id) {
+            $this->authorize('view', $form->workspace);
+        }
+
+        $form->load('questions.options');
+
+        $sessionsQuery = $form->sessions()->where('status', 'submitted');
+        
+        $stats = [
+            'total_responses' => $sessionsQuery->count(),
+            'average_score' => round($sessionsQuery->avg('score') ?? 0, 2),
+            'average_time_seconds' => round($sessionsQuery->avg('time_spent_seconds') ?? 0),
+            'completion_rate' => $this->calculateCompletionRate($form),
+        ];
+
+        // OPTIMIZATION: Fetch ALL responses in one query instead of loops
+        $allResponses = DB::table('responses')
+            ->join('form_sessions', 'responses.session_id', '=', 'form_sessions.id')
+            ->where('form_sessions.form_id', $form->id)
+            ->where('form_sessions.status', 'submitted')
+            ->select('responses.question_id', 'responses.answer', 'responses.is_correct')
+            ->get()
+            ->groupBy('question_id');
+
+        $questionStats = $form->questions->map(function ($question) use ($allResponses) {
+            $questionResponses = $allResponses->get($question->id) ?? collect();
+            
+            $questionData = [
+                'id' => $question->id,
+                'content' => $question->content,
+                'type' => $question->type,
+            ];
+
+            if ($question->hasOptions()) {
+                // In-memory counting
+                $answerCounts = $questionResponses->pluck('answer')
+                    ->flatMap(function ($answer) {
+                        $decoded = json_decode($answer, true);
+                        return is_array($decoded) ? $decoded : [$decoded];
+                    })
+                    ->countBy()
+                    ->toArray();
+
+                $questionData['options'] = $question->options->map(fn($o) => [
+                    'id' => $o->id,
+                    'content' => $o->content,
+                    'count' => $answerCounts[$o->id] ?? 0,
+                ]);
+            }
+
+            if ($question->points > 0) {
+                $total = $questionResponses->count();
+                $correct = $questionResponses->where('is_correct', true)->count();
+                
+                $questionData['correct_rate'] = $total > 0 ? round(($correct / $total) * 100, 2) : 0;
+            }
+
+            return $questionData;
+        });
+
+        return response()->json([
+            'stats' => $stats,
+            'questions' => $questionStats,
+        ]);
     }
 
     public function show(Form $form, FormSession $session): JsonResponse
@@ -115,7 +187,11 @@ class ResponseController extends Controller
         $this->authorize('view', $form->workspace);
 
         $format = $request->query('format', 'xlsx');
-        $filename = $form->slug . '-responses';
+        
+        // Create user-friendly filename: "Hasil Respon - Form Title"
+        // Remove illegal characters for filenames
+        $safeTitle = preg_replace('/[^A-Za-z0-9 \-_]/', '', $form->title);
+        $filename = 'Hasil Respon - ' . $safeTitle;
 
         if ($format === 'csv') {
             return Excel::download(new ResponsesExport($form), $filename . '.csv', \Maatwebsite\Excel\Excel::CSV);
@@ -124,76 +200,7 @@ class ResponseController extends Controller
         return Excel::download(new ResponsesExport($form), $filename . '.xlsx');
     }
 
-    public function summary(Form $form): JsonResponse
-    {
-        // Handle forms with or without workspace
-        if ($form->workspace_id) {
-            $this->authorize('view', $form->workspace);
-        }
 
-        $form->load('questions.options');
-
-        $sessions = $form->sessions()->where('status', 'submitted');
-        
-        $stats = [
-            'total_responses' => $sessions->count(),
-            'average_score' => round($sessions->avg('score') ?? 0, 2),
-            'average_time_seconds' => round($sessions->avg('time_spent_seconds') ?? 0),
-            'completion_rate' => $this->calculateCompletionRate($form),
-        ];
-
-        $questionStats = [];
-        foreach ($form->questions as $question) {
-            $questionData = [
-                'id' => $question->id,
-                'content' => $question->content,
-                'type' => $question->type,
-            ];
-
-            if ($question->hasOptions()) {
-                $optionCounts = DB::table('responses')
-                    ->join('form_sessions', 'responses.session_id', '=', 'form_sessions.id')
-                    ->where('responses.question_id', $question->id)
-                    ->where('form_sessions.status', 'submitted')
-                    ->select('responses.answer')
-                    ->get()
-                    ->pluck('answer')
-                    ->flatMap(function ($answer) {
-                        $decoded = json_decode($answer, true);
-                        return is_array($decoded) ? $decoded : [$decoded];
-                    })
-                    ->countBy()
-                    ->toArray();
-
-                $questionData['options'] = $question->options->map(fn($o) => [
-                    'id' => $o->id,
-                    'content' => $o->content,
-                    'count' => $optionCounts[$o->id] ?? 0,
-                ]);
-            }
-
-            if ($question->points > 0) {
-                $responses = $form->sessions()
-                    ->where('status', 'submitted')
-                    ->join('responses', 'form_sessions.id', '=', 'responses.session_id')
-                    ->where('responses.question_id', $question->id)
-                    ->select('responses.is_correct')
-                    ->get();
-
-                $correct = $responses->where('is_correct', true)->count();
-                $total = $responses->count();
-                
-                $questionData['correct_rate'] = $total > 0 ? round(($correct / $total) * 100, 2) : 0;
-            }
-
-            $questionStats[] = $questionData;
-        }
-
-        return response()->json([
-            'stats' => $stats,
-            'questions' => $questionStats,
-        ]);
-    }
 
     private function calculateCompletionRate(Form $form): float
     {

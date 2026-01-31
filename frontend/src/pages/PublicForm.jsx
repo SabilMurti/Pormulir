@@ -145,6 +145,10 @@ export function PublicForm() {
         setError('Login diperlukan untuk mengakses formulir ini.');
       } else if (errorCode === 'RESTRICTED_ACCESS') {
         setError('Anda tidak memiliki akses ke formulir ini.');
+      } else if (errorCode === 'MAX_RESPONSES_REACHED') {
+        setError('Formulir ini sudah mencapai batas maksimal respons dan tidak menerima jawaban baru.');
+      } else if (errorCode === 'ALREADY_SUBMITTED') {
+        setError('Anda sudah pernah mengisi formulir ini. Setiap orang hanya dapat mengirim satu respons.');
       } else {
         setError(errorMessage || 'Gagal memuat formulir. Silakan coba lagi nanti.');
       }
@@ -208,8 +212,20 @@ export function PublicForm() {
       setForm(prev => ({ ...prev, submissionResult: response }));
     } catch (error) {
       console.error('Failed to submit response:', error);
-      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Failed to submit response. Please try again.';
-      alert(errorMessage);
+      const errorCode = error.response?.data?.code;
+      const errorMessage = error.response?.data?.error || error.response?.data?.message;
+      
+      if (errorCode === 'MAX_RESPONSES_REACHED') {
+        setError('Formulir ini sudah mencapai batas maksimal respons.');
+        setSubmitted(false);
+      } else if (errorCode === 'ALREADY_SUBMITTED') {
+        setError('Anda sudah pernah mengisi formulir ini.');
+        setSubmitted(false);
+      } else if (errorCode === 'LOGIN_REQUIRED') {
+        alert('Anda perlu login untuk mengirim respons.');
+      } else {
+        alert(errorMessage || 'Gagal mengirim respons. Silakan coba lagi.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -754,12 +770,15 @@ function renderQuestionInput(question, value, onChange) {
       return (
         <div className="space-y-2">
           {question.options?.map((option, i) => {
-            const optionValue = option.content || option.text || option;
+            // Use ID if available, otherwise fallback to content (legacy)
+            const optionValue = option.id || option.content || option.text || option;
+            const isSelected = value === optionValue;
+            
             return (
               <label 
                 key={option.id || i}
                 className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                  value === optionValue
+                  isSelected
                     ? 'border-primary-500 bg-primary-50'
                     : 'border-slate-200 hover:border-slate-300'
                 }`}
@@ -768,23 +787,23 @@ function renderQuestionInput(question, value, onChange) {
                   <input
                     type="radio"
                     name={`question-${question.id}`}
-                    checked={value === optionValue}
+                    checked={isSelected}
                     onChange={() => onChange(optionValue)}
                     className="sr-only"
                   />
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                    value === optionValue
+                    isSelected
                       ? 'border-primary-500'
                       : 'border-slate-300'
                   }`}>
-                    {value === optionValue && (
+                    {isSelected && (
                       <div className="w-2.5 h-2.5 rounded-full bg-primary-500" />
                     )}
                   </div>
                 </div>
                 <div 
                   className="text-slate-700 prose prose-sm prose-p:my-0 max-w-none"
-                  dangerouslySetInnerHTML={{ __html: optionValue }} 
+                  dangerouslySetInnerHTML={{ __html: option.content || option.text || option }} 
                 />
               </label>
             );
@@ -798,8 +817,9 @@ function renderQuestionInput(question, value, onChange) {
       return (
         <div className="space-y-2">
           {question.options?.map((option, i) => {
-            const optionText = option.content || option.text || option;
-            const isChecked = checkboxValue.includes(optionText);
+            // Use ID if available
+            const optionValue = option.id || option.content || option.text || option;
+            const isChecked = checkboxValue.includes(optionValue);
             return (
               <label 
                 key={option.id || i}
@@ -815,9 +835,9 @@ function renderQuestionInput(question, value, onChange) {
                     checked={isChecked}
                     onChange={() => {
                       if (isChecked) {
-                        onChange(checkboxValue.filter(v => v !== optionText));
+                        onChange(checkboxValue.filter(v => v !== optionValue));
                       } else {
-                        onChange([...checkboxValue, optionText]);
+                        onChange([...checkboxValue, optionValue]);
                       }
                     }}
                     className="sr-only"
@@ -834,7 +854,7 @@ function renderQuestionInput(question, value, onChange) {
                 </div>
                 <div 
                   className="text-slate-700 prose prose-sm prose-p:my-0 max-w-none"
-                  dangerouslySetInnerHTML={{ __html: optionText }} 
+                  dangerouslySetInnerHTML={{ __html: option.content || option.text || option }} 
                 />
               </label>
             );
@@ -1006,7 +1026,8 @@ function renderSubmittedAnswer(question, value) {
       return (
         <div className="space-y-2">
           {question.options?.map((option, i) => {
-            const optionValue = option.content || option.text || option;
+            // Use ID if available
+            const optionValue = option.id || option.content || option.text || option;
             const isSelected = value === optionValue;
             return (
               <div
@@ -1026,9 +1047,10 @@ function renderSubmittedAnswer(question, value) {
                     <div className="w-2.5 h-2.5 rounded-full bg-slate-500" />
                   )}
                 </div>
-                <span className={isSelected ? 'text-slate-700' : 'text-slate-400'}>
-                  {optionValue}
-                </span>
+                <div 
+                  className={isSelected ? 'text-slate-700 prose prose-sm max-w-none' : 'text-slate-400 prose prose-sm max-w-none'}
+                  dangerouslySetInnerHTML={{ __html: option.content || option.text || option }}
+                />
               </div>
             );
           })}
@@ -1041,8 +1063,9 @@ function renderSubmittedAnswer(question, value) {
       return (
         <div className="space-y-2">
           {question.options?.map((option, i) => {
-            const optionText = option.content || option.text || option;
-            const isChecked = checkboxValue.includes(optionText);
+            // Use ID if available
+            const optionValue = option.id || option.content || option.text || option;
+            const isChecked = checkboxValue.includes(optionValue);
             return (
               <div
                 key={option.id || i}
@@ -1061,9 +1084,10 @@ function renderSubmittedAnswer(question, value) {
                     <CheckCircle className="w-3 h-3 text-white" />
                   )}
                 </div>
-                <span className={isChecked ? 'text-slate-700' : 'text-slate-400'}>
-                  {optionText}
-                </span>
+                <div 
+                  className={isChecked ? 'text-slate-700 prose prose-sm max-w-none' : 'text-slate-400 prose prose-sm max-w-none'}
+                  dangerouslySetInnerHTML={{ __html: option.content || option.text || option }}
+                />
               </div>
             );
           })}

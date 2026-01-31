@@ -160,6 +160,52 @@ class AIController extends Controller
         ], 201);
     }
 
+    /**
+     * Analyze form responses with AI
+     */
+    public function analyzeResponses(Request $request, Form $form): JsonResponse
+    {
+        $this->authorize('view', $form->workspace);
+
+        $request->validate([
+            'prompt' => 'required|string|max:1000',
+            'context' => 'nullable|array',
+        ]);
+
+        try {
+            // Get form data with responses
+            $form->load(['questions.options', 'sessions' => function($q) {
+                $q->where('status', 'submitted')
+                  ->with('responses')
+                  ->orderBy('submitted_at', 'desc')
+                  ->limit(100); // Limit to latest 100 for performance
+            }]);
+
+            // Use frontend context if provided, otherwise build from backend
+            $frontendContext = $request->context;
+
+            $analysis = $this->geminiService->analyzeResponses(
+                user: $request->user(),
+                form: $form,
+                prompt: $request->prompt,
+                frontendContext: $frontendContext
+            );
+
+            return response()->json([
+                'analysis' => $analysis,
+                'meta' => [
+                    'total_responses' => $form->sessions->count(),
+                    'analyzed_at' => now()->toISOString(),
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to analyze responses',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function usage(Request $request): JsonResponse
     {
         $logs = AiUsageLog::where('user_id', $request->user()->id)

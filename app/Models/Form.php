@@ -24,6 +24,9 @@ class Form extends Model
         'theme',
         'access_type',
         'allowed_emails',
+        'max_responses',
+        'spreadsheet_id',
+        'spreadsheet_url',
     ];
 
     protected $casts = [

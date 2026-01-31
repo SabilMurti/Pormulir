@@ -23,7 +23,9 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import { Skeleton } from '../components/ui/Loading';
+import { toast } from 'react-hot-toast';
 import QuestionCard from '../components/forms/QuestionCard';
 import QuestionTypePicker from '../components/forms/QuestionTypePicker';
 import FormSettingsPanel from '../components/forms/FormSettingsPanel';
@@ -84,6 +86,7 @@ export function FormBuilder() {
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [selectedQuestionId, setSelectedQuestionId] = useState(null);
+  const [showAutoPageConfirm, setShowAutoPageConfirm] = useState({ show: false, interval: 0 });
   
   // Debounce ref for API calls
   const updateTimeoutRef = useRef({});
@@ -122,11 +125,12 @@ export function FormBuilder() {
         slug: formData.slug,
         access_type: formData.access_type || 'public',
         allowed_emails: formData.allowed_emails || [],
+        max_responses: formData.max_responses || null,
       });
       setQuestions(formData.questions || []);
     } catch (error) {
       console.error('Failed to fetch form:', error);
-      alert('Failed to load form');
+      toast.error('Gagal memuat form');
       navigate('/forms');
     } finally {
       setLoading(false);
@@ -169,6 +173,7 @@ export function FormBuilder() {
           title: form.title,
           description: form.description,
           settings: form.settings,
+          max_responses: form.max_responses,
         });
 
         // Sync all questions to ensure data consistency
@@ -215,10 +220,10 @@ export function FormBuilder() {
         }
       }
       setHasChanges(false);
-      alert('Form saved successfully');
+      toast.success('Form berhasil disimpan');
     } catch (error) {
       console.error('Failed to save form:', error);
-      alert(error.message || 'Failed to save form');
+      toast.error(error.message || 'Gagal menyimpan form');
     } finally {
       setSaving(false);
     }
@@ -229,10 +234,10 @@ export function FormBuilder() {
     try {
       await formService.publish(id);
       setForm({ ...form, status: 'published' });
-      alert('Form published successfully!');
+      toast.success('Form berhasil dipublikasikan!');
     } catch (error) {
       console.error('Failed to publish form:', error);
-      alert('Failed to publish form');
+      toast.error('Gagal mempublikasikan form');
     } finally {
       setSaving(false);
     }
@@ -319,8 +324,13 @@ export function FormBuilder() {
     }
   };
 
-  const handleAutoPage = async (interval) => {
-    if (!confirm(`This will automatically insert a section break every ${interval} questions. Continue?`)) return;
+  const handleAutoPage = (interval) => {
+    setShowAutoPageConfirm({ show: true, interval });
+  };
+
+  const executeAutoPage = async () => {
+    const { interval } = showAutoPageConfirm;
+    // if (!confirm(`This will automatically insert a section break every ${interval} questions. Continue?`)) return;
     
     setLoading(true);
     try {
@@ -364,12 +374,14 @@ export function FormBuilder() {
             }
          }
       }
+      toast.success(`Halaman otomatis dibuat setiap ${interval} pertanyaan`);
       
     } catch (error) {
        console.error('Auto-page failed', error);
-       alert('Failed to auto-page questions');
+       toast.error('Gagal membuat halaman otomatis');
     } finally {
        setLoading(false);
+       setShowAutoPageConfirm({ show: false, interval: 0 });
     }
   };
 
@@ -495,7 +507,7 @@ export function FormBuilder() {
                     await handleSave();
                     // After save, the page will navigate to the new form
                     // User will need to click publish again
-                    alert('Form disimpan! Silakan klik Publish lagi.');
+                    toast.success('Form disimpan! Silakan klik Publish lagi.');
                     return;
                   }
                   setShowPublishModal(true);
@@ -630,6 +642,23 @@ export function FormBuilder() {
         onUpdate={(newSettings) => {
           handleFormChange('settings', newSettings);
         }}
+        maxResponses={form.max_responses}
+        onMaxResponsesChange={(value) => {
+          handleFormChange('max_responses', value);
+        }}
+      />
+
+      {/* Auto-Page Confirm Modal */}
+      <ConfirmModal 
+        isOpen={showAutoPageConfirm.show}
+        onClose={() => setShowAutoPageConfirm({ show: false, interval: 0 })}
+        onConfirm={executeAutoPage}
+        title="Otomatis Bagi Halaman"
+        message={`Ini akan secara otomatis memasukkan Section Break setiap ${showAutoPageConfirm.interval} pertanyaan. Struktur form yang sudah ada mungkin berubah. Lanjutkan?`}
+        confirmText="Ya, Lanjutkan"
+        cancelText="Batal"
+        type="primary"
+        isLoading={loading}
       />
     </div>
   );
